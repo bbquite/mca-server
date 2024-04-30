@@ -12,7 +12,6 @@ func reqPostMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("StatusBadRequest"))
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -20,19 +19,18 @@ func reqPostMiddleware(next http.Handler) http.Handler {
 
 func apiHandler(w http.ResponseWriter, r *http.Request) {
 
-	type gauge float64
-	type counter int64
+	// type gauge float64
+	// type counter int64
 
 	pathVars := gorilla_mux.Vars(r)
 
-	metricType, _ := pathVars["metric_type"]
-	things := []string{"gauge", "counter"}
-	if !slices.Contains(things, metricType) {
+	metricType := pathVars["metric_type"]
+	metricTypeSlice := []string{"gauge", "counter"}
+	if !slices.Contains(metricTypeSlice, metricType) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	metricValue, _ := pathVars["metric_value"]
+	metricValue := pathVars["metric_value"]
 	metricValueInt, err := strconv.ParseInt(metricValue, 10, 64)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
