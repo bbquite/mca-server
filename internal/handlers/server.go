@@ -20,6 +20,8 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("m_name")
 	mValue := r.PathValue("m_value")
 
+	log.Print(r)
+
 	metricService, ok := r.Context().Value(server.ServiceCtx{}).(service.MetricService)
 	if !ok {
 		w.WriteHeader(http.StatusInternalServerError)

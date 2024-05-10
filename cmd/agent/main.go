@@ -1,38 +1,14 @@
 package main
 
 import (
-	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/handlers"
 	"log"
-	"runtime"
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := handlers.AgentRun(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func run() error {
-	db, err := store.NewMemoryStore()
-	if err != nil {
-		log.Fatal("store", log.ErrAttr(err))
-	}
-
-	metricsGetter := service.NewMetricsGetterService(db)
-
-	//memStat := new(runtime.MemStats)
-	//
-	//for {
-	//	runtime.ReadMemStats(memStat)
-	//	collectMemStat(*memStat)
-	//	time.Sleep(2 * time.Second)
-	//}
-
-}
-
-func collectMemStat(memStat runtime.MemStats) {
-	msAlloc := memStat.Alloc
-	log.Println(msAlloc)
 }
 
 //st := new(runtime.MemStats)
