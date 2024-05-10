@@ -62,10 +62,6 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	return
 }
 
 //metricstest -test.v -test.run=^TestIteration1$ -binary-path=cmd/server/server
