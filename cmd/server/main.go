@@ -1,60 +1,29 @@
 package main
 
 import (
-	"net/http"
-	"slices"
-	"strconv"
-
-	gorilla_mux "github.com/gorilla/mux"
+	"context"
+	"github.com/bbquite/mca-server/internal/handlers"
+	"github.com/bbquite/mca-server/internal/server"
+	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/storage"
+	"log"
 )
-
-func reqPostMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-func apiHandler(w http.ResponseWriter, r *http.Request) {
-
-	// type gauge float64
-	// type counter int64
-
-	pathVars := gorilla_mux.Vars(r)
-
-	metricType := pathVars["metric_type"]
-	metricTypeSlice := []string{"gauge", "counter"}
-	if !slices.Contains(metricTypeSlice, metricType) {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	metricValue := pathVars["metric_value"]
-	metricValueInt, err := strconv.ParseInt(metricValue, 10, 64)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	metricValueInt++
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Это страница test"))
-
-	// log.Println("")
-
-}
 
 func main() {
 
-	mux := gorilla_mux.NewRouter()
-	mux.HandleFunc("/update/{metric_type}/{metric_name}/{metric_value}", apiHandler)
-	// http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
+	srv := new(server.Server)
 
-	err := http.ListenAndServe(":8080", reqPostMiddleware(mux))
+	db, err := storage.NewMemStorage()
 	if err != nil {
-		panic(err)
+		log.Fatalf("storage initialization error: %s", err.Error())
 	}
 
+	metricService := service.NewMetricService(db)
+	ctx := context.WithValue(context.Background(), server.ServiceCtx{}, metricService)
+
+	if err := srv.Run("8080", ctx, handlers.InitRoutes()); err != nil {
+		log.Fatalf("error occured while running http server: %s", err.Error())
+	}
+
+	defer srv.Shutdown(context.Background())
 }
