@@ -67,3 +67,6 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	return
 }
+
+//metricstest -test.v -test.run=^TestIteration1$ -binary-path=cmd/server/server
+//metricstest -test.v -test.run=^TestIteration2[AB]*$ -source-path=. -agent-binary-path=cmd/agent/agent

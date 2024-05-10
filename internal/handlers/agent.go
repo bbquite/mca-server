@@ -26,22 +26,20 @@ func AgentRun() error {
 		runtime.ReadMemStats(memStat)
 		memStatMap := collectMemStat(*memStat)
 		for key, value := range memStatMap {
-			err := sendGaugeMemStat("gauge", key, value)
+			err := sendRequestMemStat("gauge", key, value)
 			if err != nil {
 				log.Print(err)
 				continue
 			}
 		}
 
-		err := sendGaugeMemStat("counter", "PollCount", strconv.Itoa(PollCount))
+		err := sendRequestMemStat("counter", "PollCount", strconv.Itoa(PollCount))
 		if err != nil {
 			log.Print(err)
 		}
 
 		time.Sleep(2 * time.Second)
 	}
-
-	return nil
 }
 
 func collectMemStat(memStat runtime.MemStats) map[string]string {
@@ -78,7 +76,7 @@ func collectMemStat(memStat runtime.MemStats) map[string]string {
 	return result
 }
 
-func sendGaugeMemStat(mType string, mName string, mValue string) error {
+func sendRequestMemStat(mType string, mName string, mValue string) error {
 
 	url := fmt.Sprintf("http://localhost:8080/update/%s/%s/%s", mType, mName, mValue)
 
