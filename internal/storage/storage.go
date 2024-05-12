@@ -23,7 +23,11 @@ func (storage *MemStorage) AddGaugeItem(key string, value model.Gauge) bool {
 }
 
 func (storage *MemStorage) AddCounterItem(key string, value model.Counter) bool {
-	storage.CounterItems[key] = value
+	if _, ok := storage.CounterItems[key]; ok {
+		storage.CounterItems[key] = storage.CounterItems[key] + value
+	} else {
+		storage.CounterItems[key] = value
+	}
 	return true
 }
 
