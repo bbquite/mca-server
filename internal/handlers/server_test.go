@@ -56,7 +56,7 @@ func Test_apiHandler(t *testing.T) {
 	db := storage.NewMemStorage()
 	serv := service.NewMetricService(db)
 	handler := NewHandler(serv)
-	mux := handler.InitRoutes()
+	mux := handler.InitChiRoutes()
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/go-chi/chi/v5"
 	"net/http"
 	"time"
 )
@@ -10,7 +11,7 @@ type Server struct {
 	httpServer *http.Server
 }
 
-func (s *Server) Run(port string, mux *http.ServeMux) error {
+func (s *Server) Run(port string, mux *chi.Mux) error {
 
 	s.httpServer = &http.Server{
 		Addr:           ":" + port,

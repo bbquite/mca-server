@@ -3,6 +3,8 @@ package handlers
 import (
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"log"
 	"net/http"
 	"strconv"
@@ -16,19 +18,26 @@ func NewHandler(services *service.MetricService) *Handler {
 	return &Handler{services: services}
 }
 
+// InitRoutes Оригинальньный роутер
 func (h *Handler) InitRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /update/{m_type}/{m_name}/{m_value}", h.apiHandler)
 	return mux
 }
 
-func (h *Handler) apiHandler(w http.ResponseWriter, r *http.Request) {
-	mType := r.PathValue("m_type")
-	mName := r.PathValue("m_name")
-	mValue := r.PathValue("m_value")
+// InitChiRoutes Роутер с chi
+func (h *Handler) InitChiRoutes() *chi.Mux {
+	chiRouter := chi.NewRouter()
+	chiRouter.Use(middleware.Logger)
+	chiRouter.Post("/update/{m_type}/{m_name}/{m_value}", h.apiHandler)
 
-	log.Print(r.URL)
-	log.Print(mType, mName, mValue)
+	return chiRouter
+}
+
+func (h *Handler) apiHandler(w http.ResponseWriter, r *http.Request) {
+	mType := chi.URLParam(r, "m_type")
+	mName := chi.URLParam(r, "m_name")
+	mValue := chi.URLParam(r, "m_value")
 
 	w.Header().Set("Content-type", "text/plain")
 

@@ -17,7 +17,7 @@ func main() {
 	serv := service.NewMetricService(db)
 	handler := handlers.NewHandler(serv)
 
-	if err := srv.Run("8080", handler.InitRoutes()); err != nil {
+	if err := srv.Run("8080", handler.InitChiRoutes()); err != nil {
 		log.Fatalf("error occured while running http server: %s", err.Error())
 	}
 
