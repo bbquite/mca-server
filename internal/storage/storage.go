@@ -1,8 +1,8 @@
 package storage
 
 import (
+	"fmt"
 	"github.com/bbquite/mca-server/internal/model"
-	"strconv"
 )
 
 type MemStorage struct {
@@ -44,7 +44,7 @@ func (storage *MemStorage) GetCounterItem(key string) (model.Counter, bool) {
 func (storage *MemStorage) GetAllGaugeItems() (map[string]string, bool) {
 	res := map[string]string{}
 	for key, value := range storage.GaugeItems {
-		res[key] = strconv.Itoa(int(value))
+		res[key] = fmt.Sprintf("%.2f", value)
 	}
 	return res, true
 }
@@ -52,7 +52,7 @@ func (storage *MemStorage) GetAllGaugeItems() (map[string]string, bool) {
 func (storage *MemStorage) GetAllCounterItems() (map[string]string, bool) {
 	res := map[string]string{}
 	for key, value := range storage.CounterItems {
-		res[key] = strconv.Itoa(int(value))
+		res[key] = fmt.Sprintf("%v", value)
 	}
 	return res, true
 }

@@ -115,7 +115,8 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		body := fmt.Sprintf("%s: %s", mName, strconv.Itoa(int(value)))
+
+		body := fmt.Sprintf("%v", value)
 		w.Write([]byte(body))
 
 	case "counter":
@@ -124,7 +125,8 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		body := fmt.Sprintf("%s: %s", mName, strconv.Itoa(int(value)))
+
+		body := fmt.Sprintf("%v", value)
 		w.Write([]byte(body))
 
 	default:
