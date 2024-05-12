@@ -2,6 +2,7 @@ package storage
 
 import (
 	"github.com/bbquite/mca-server/internal/model"
+	"strconv"
 )
 
 type MemStorage struct {
@@ -26,26 +27,32 @@ func (storage *MemStorage) AddCounterItem(key string, value model.Counter) bool 
 	return true
 }
 
-func (storage *MemStorage) GetGaugeItem(key string, value model.Gauge) (model.Gauge, bool) {
+func (storage *MemStorage) GetGaugeItem(key string) (model.Gauge, bool) {
 	if _, ok := storage.GaugeItems[key]; ok {
 		return storage.GaugeItems[key], true
 	}
 	return 0, false
 }
 
-func (storage *MemStorage) GetCounterItem(key string, value model.Counter) (model.Counter, bool) {
+func (storage *MemStorage) GetCounterItem(key string) (model.Counter, bool) {
 	if _, ok := storage.CounterItems[key]; ok {
 		return storage.CounterItems[key], true
 	}
 	return 0, false
 }
 
-func (storage *MemStorage) GetAllGaugeItems() (map[string]model.Gauge, bool) {
-	result := storage.GaugeItems
-	return result, true
+func (storage *MemStorage) GetAllGaugeItems() (map[string]string, bool) {
+	res := map[string]string{}
+	for key, value := range storage.GaugeItems {
+		res[key] = strconv.Itoa(int(value))
+	}
+	return res, true
 }
 
-func (storage *MemStorage) GetAllCounterItems() (map[string]model.Counter, bool) {
-	result := storage.CounterItems
-	return result, true
+func (storage *MemStorage) GetAllCounterItems() (map[string]string, bool) {
+	res := map[string]string{}
+	for key, value := range storage.CounterItems {
+		res[key] = strconv.Itoa(int(value))
+	}
+	return res, true
 }

@@ -9,19 +9,19 @@ var (
 	ErrorAddingGauge   = errors.New("no gauge value added")
 	ErrorAddingCounter = errors.New("no counter value added")
 
-	ErrorGaugeNotFound    = errors.New("gauge not found")
-	ErrorCountersNotFound = errors.New("counters not found")
+	ErrorGaugeNotFound   = errors.New("gauge not found")
+	ErrorCounterNotFound = errors.New("counters not found")
 )
 
 type MemStorageRepo interface {
 	AddGaugeItem(key string, value model.Gauge) bool
 	AddCounterItem(key string, value model.Counter) bool
 
-	GetGaugeItem(key string, value model.Gauge) (model.Gauge, bool)
-	GetCounterItem(key string, value model.Counter) (model.Counter, bool)
+	GetGaugeItem(key string) (model.Gauge, bool)
+	GetCounterItem(key string) (model.Counter, bool)
 
-	GetAllGaugeItems() (map[string]model.Gauge, bool)
-	GetAllCounterItems() (map[string]model.Counter, bool)
+	GetAllGaugeItems() (map[string]string, bool)
+	GetAllCounterItems() (map[string]string, bool)
 }
 
 type MetricService struct {
@@ -46,32 +46,33 @@ func (h *MetricService) AddCounterItem(key string, value model.Counter) (model.C
 	return 0, ErrorAddingCounter
 }
 
-func (h *MetricService) GetGaugeItem(key string, value model.Gauge) (model.Gauge, error) {
-	if gauge, ok := h.store.GetGaugeItem(key, value); ok {
+func (h *MetricService) GetGaugeItem(key string) (model.Gauge, error) {
+	if gauge, ok := h.store.GetGaugeItem(key); ok {
 		return gauge, nil
 	}
 	return 0, ErrorGaugeNotFound
 }
 
-func (h *MetricService) GetCounterItem(key string, value model.Counter) (model.Counter, error) {
-	if counter, ok := h.store.GetCounterItem(key, value); ok {
+func (h *MetricService) GetCounterItem(key string) (model.Counter, error) {
+	if counter, ok := h.store.GetCounterItem(key); ok {
 		return counter, nil
 	}
-	return 0, ErrorCountersNotFound
+	return 0, ErrorCounterNotFound
 }
 
-func (h *MetricService) GetAllGaugeItems() (map[string]model.Gauge, error) {
-	if result, ok := h.store.GetAllGaugeItems(); ok {
-		return result, nil
-	}
+func (h *MetricService) GetAllGaugeItems() (map[string]string, error) {
+	result, err := h.store.GetAllGaugeItems()
+	if !err {
+		return map[string]string{}, errors.New("error getting metrics")
 
-	return make(map[string]model.Gauge), errors.New("test error")
+	}
+	return result, nil
 }
 
-func (h *MetricService) GetAllCounterItems() (map[string]model.Counter, error) {
-	if result, ok := h.store.GetAllCounterItems(); ok {
-		return result, nil
+func (h *MetricService) GetAllCounterItems() (map[string]string, error) {
+	result, err := h.store.GetAllCounterItems()
+	if !err {
+		return map[string]string{}, errors.New("error getting metrics")
 	}
-
-	return make(map[string]model.Counter), errors.New("test error")
+	return result, nil
 }
