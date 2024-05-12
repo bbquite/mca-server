@@ -11,10 +11,10 @@ type Server struct {
 	httpServer *http.Server
 }
 
-func (s *Server) Run(port string, mux *chi.Mux) error {
+func (s *Server) Run(addr string, mux *chi.Mux) error {
 
 	s.httpServer = &http.Server{
-		Addr:           ":" + port,
+		Addr:           addr,
 		Handler:        mux,
 		MaxHeaderBytes: 1 << 20, // 1 MB
 		ReadTimeout:    10 * time.Second,

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -19,7 +20,19 @@ var (
 	PollCount = 0
 )
 
+type Options struct {
+	a string
+	r string
+	p string
+}
+
 func AgentRun() error {
+	opt := new(Options)
+	flag.StringVar(&opt.a, "a", "localhost:8080", "server host")
+	flag.StringVar(&opt.r, "r", "localhost:8080", "reportInterval")
+	flag.StringVar(&opt.p, "p", "localhost:8080", "pollInterval")
+	flag.Parse()
+
 	memStat := new(runtime.MemStats)
 
 	for {

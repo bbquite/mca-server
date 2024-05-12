@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"github.com/bbquite/mca-server/internal/handlers"
 	"github.com/bbquite/mca-server/internal/server"
 	"github.com/bbquite/mca-server/internal/service"
@@ -9,7 +10,15 @@ import (
 	"log"
 )
 
+type Options struct {
+	a string
+}
+
 func main() {
+
+	opt := new(Options)
+	flag.StringVar(&opt.a, "a", "localhost:8080", "server host")
+	flag.Parse()
 
 	srv := new(server.Server)
 
@@ -17,7 +26,7 @@ func main() {
 	serv := service.NewMetricService(db)
 	handler := handlers.NewHandler(serv)
 
-	if err := srv.Run("8080", handler.InitChiRoutes()); err != nil {
+	if err := srv.Run(opt.a, handler.InitChiRoutes()); err != nil {
 		log.Fatalf("error occured while running http server: %s", err.Error())
 	}
 
