@@ -28,8 +28,8 @@ type MetricService struct {
 	store MemStorageRepo
 }
 
-func NewMetricService(store MemStorageRepo) MetricService {
-	return MetricService{store: store}
+func NewMetricService(store MemStorageRepo) *MetricService {
+	return &MetricService{store: store}
 }
 
 func (h *MetricService) AddGaugeItem(key string, value model.Gauge) (model.Gauge, error) {
@@ -68,7 +68,7 @@ func (h *MetricService) GetAllGaugeItems() (map[string]model.Gauge, error) {
 	return make(map[string]model.Gauge), errors.New("test error")
 }
 
-func (h *MetricService) GetAllGCounterItems() (map[string]model.Counter, error) {
+func (h *MetricService) GetAllCounterItems() (map[string]model.Counter, error) {
 	if result, ok := h.store.GetAllCounterItems(); ok {
 		return result, nil
 	}

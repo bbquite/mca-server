@@ -13,15 +13,11 @@ func main() {
 
 	srv := new(server.Server)
 
-	db, err := storage.NewMemStorage()
-	if err != nil {
-		log.Fatalf("storage initialization error: %s", err.Error())
-	}
+	db := storage.NewMemStorage()
+	serv := service.NewMetricService(db)
+	handler := handlers.NewHandler(serv)
 
-	metricService := service.NewMetricService(db)
-	ctx := context.WithValue(context.Background(), server.ServiceCtx{}, metricService)
-
-	if err := srv.Run("8080", ctx, handlers.InitRoutes()); err != nil {
+	if err := srv.Run("8080", handler.InitRoutes()); err != nil {
 		log.Fatalf("error occured while running http server: %s", err.Error())
 	}
 

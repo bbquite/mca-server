@@ -9,11 +9,11 @@ type MemStorage struct {
 	CounterItems map[string]model.Counter
 }
 
-func NewMemStorage() (*MemStorage, error) {
+func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		GaugeItems:   make(map[string]model.Gauge),
 		CounterItems: make(map[string]model.Counter),
-	}, nil
+	}
 }
 
 func (storage *MemStorage) AddGaugeItem(key string, value model.Gauge) bool {

@@ -2,19 +2,15 @@ package server
 
 import (
 	"context"
-	"net"
 	"net/http"
 	"time"
 )
-
-type ServiceCtx struct {
-}
 
 type Server struct {
 	httpServer *http.Server
 }
 
-func (s *Server) Run(port string, ctx context.Context, mux *http.ServeMux) error {
+func (s *Server) Run(port string, mux *http.ServeMux) error {
 
 	s.httpServer = &http.Server{
 		Addr:           ":" + port,
@@ -22,9 +18,6 @@ func (s *Server) Run(port string, ctx context.Context, mux *http.ServeMux) error
 		MaxHeaderBytes: 1 << 20, // 1 MB
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
-		ConnContext: func(_ context.Context, _ net.Conn) context.Context {
-			return ctx
-		},
 	}
 
 	return s.httpServer.ListenAndServe()
