@@ -10,6 +10,10 @@ import (
 	"log"
 )
 
+const (
+	defaultHost string = "localhost:8080"
+)
+
 type Options struct {
 	a string
 }
@@ -17,8 +21,10 @@ type Options struct {
 func main() {
 
 	opt := new(Options)
-	flag.StringVar(&opt.a, "a", "localhost:8080", "server host")
+	flag.StringVar(&opt.a, "a", defaultHost, "server host")
 	flag.Parse()
+
+	log.Printf("main after opt %s", opt.a)
 
 	srv := new(server.Server)
 
