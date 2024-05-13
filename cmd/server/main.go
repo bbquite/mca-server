@@ -18,6 +18,10 @@ type Options struct {
 	a string
 }
 
+func initOptions() {
+
+}
+
 func main() {
 
 	opt := new(Options)
