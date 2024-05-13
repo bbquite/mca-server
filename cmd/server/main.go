@@ -7,31 +7,41 @@ import (
 	"github.com/bbquite/mca-server/internal/server"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
+	"github.com/joho/godotenv"
 	"log"
+	"os"
 )
 
 const (
-	defaultHost string = "localhost:8080"
+	defHost string = "localhost:8080"
 )
 
 type Options struct {
 	a string
 }
 
-func initOptions() {
+func initOptions() *Options {
+	opt := new(Options)
 
+	err := godotenv.Load()
+	if err != nil {
+		log.Print("Error loading .env file")
+	}
+
+	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
+		opt.a = envHOST
+	} else {
+		flag.StringVar(&opt.a, "a", defHost, "server host")
+		flag.Parse()
+	}
+
+	return opt
 }
 
 func main() {
 
-	opt := new(Options)
-	flag.StringVar(&opt.a, "a", defaultHost, "server host")
-	flag.Parse()
-
-	log.Printf("main after opt %s", opt.a)
-
 	srv := new(server.Server)
-
+	opt := initOptions()
 	db := storage.NewMemStorage()
 	serv := service.NewMetricService(db)
 	handler := handlers.NewHandler(serv)

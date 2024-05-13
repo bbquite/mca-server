@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -11,46 +10,7 @@ import (
 	"time"
 )
 
-var (
-	PollCount = 0
-)
-
-type Options struct {
-	a string
-	r int
-	p int
-}
-
-func AgentRun() error {
-	opt := new(Options)
-	flag.StringVar(&opt.a, "a", "localhost:8080", "server host")
-	flag.IntVar(&opt.r, "r", 10, "reportInterval")
-	flag.IntVar(&opt.p, "p", 2, "pollInterval")
-	flag.Parse()
-
-	memStat := new(runtime.MemStats)
-
-	for {
-		runtime.ReadMemStats(memStat)
-		memStatMap := collectMemStat(*memStat)
-		for key, value := range memStatMap {
-			err := sendRequestMemStat(opt.a, "gauge", key, value)
-			if err != nil {
-				log.Print(err)
-				continue
-			}
-		}
-
-		err := sendRequestMemStat(opt.a, "counter", "PollCount", strconv.Itoa(PollCount))
-		if err != nil {
-			log.Print(err)
-		}
-
-		time.Sleep(2 * time.Second)
-	}
-}
-
-func collectMemStat(memStat runtime.MemStats) map[string]string {
+func CollectMemStat(memStat runtime.MemStats) map[string]string {
 	result := map[string]string{
 		"Alloc":         strconv.FormatUint(memStat.Alloc, 10),
 		"BuckHashSys":   strconv.FormatUint(memStat.BuckHashSys, 10),
@@ -80,11 +40,10 @@ func collectMemStat(memStat runtime.MemStats) map[string]string {
 		"TotalAlloc":    strconv.FormatUint(memStat.TotalAlloc, 10),
 		"RandomValue":   strconv.Itoa(rand.Intn(100)),
 	}
-	PollCount += 1
 	return result
 }
 
-func sendRequestMemStat(host string, mType string, mName string, mValue string) error {
+func SendRequestMemStat(host string, mType string, mName string, mValue string) error {
 
 	url := fmt.Sprintf("http://%s/update/%s/%s/%s", host, mType, mName, mValue)
 
