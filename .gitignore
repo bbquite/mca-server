@@ -12,7 +12,7 @@
 *.out
 
 *.txt
-.env
+*.env
 
 # Binaries
 cmd/agent/main
