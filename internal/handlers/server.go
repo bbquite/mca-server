@@ -25,7 +25,7 @@ func NewHandler(services *service.MetricService) *Handler {
 // InitRoutes Оригинальньный роутер
 func (h *Handler) InitRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /update/{m_type}/{m_name}/{m_value}", h.apiHandler)
+	mux.HandleFunc("POST /update/{m_type}/{m_name}/{m_value}", h.addMetricByName)
 	return mux
 }
 
@@ -36,13 +36,13 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter.Route("/", func(r chi.Router) {
 		r.Get("/", h.getAllMetrics)
 		r.Get("/value/{m_type}/{m_name}", h.getMetricByName)
-		r.Post("/update/{m_type}/{m_name}/{m_value}", h.apiHandler)
+		r.Post("/update/{m_type}/{m_name}/{m_value}", h.addMetricByName)
 	})
 
 	return chiRouter
 }
 
-func (h *Handler) apiHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "m_type")
 	mName := chi.URLParam(r, "m_name")
 	mValue := chi.URLParam(r, "m_value")
@@ -112,8 +112,6 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "m_type")
 	mName := chi.URLParam(r, "m_name")
 
-	w.Header().Set("Content-type", "text/plain")
-
 	switch mType {
 	case "gauge":
 		value, err := h.services.GetGaugeItem(mName)
@@ -124,6 +122,7 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 		body := fmt.Sprintf("%v", value)
 		w.Write([]byte(body))
 
+		w.Header().Set("Content-type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		return
 
@@ -137,6 +136,7 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 		body := fmt.Sprintf("%v", value)
 		w.Write([]byte(body))
 
+		w.Header().Set("Content-type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		return
 

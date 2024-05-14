@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"github.com/bbquite/mca-server/internal/handlers"
+	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/joho/godotenv"
 	"log"
 	"os"
@@ -15,10 +17,6 @@ const (
 	defHost           string = "localhost:8080"
 	defReportInterval int    = 10
 	defPollInterval   int    = 2
-)
-
-var (
-	PollCount = 0
 )
 
 type Options struct {
@@ -58,31 +56,38 @@ func initOptions() *Options {
 	return opt
 }
 
+func collectRun() {
+	for {
+		log.Print(1)
+		time.Sleep(2 * time.Second)
+	}
+
+}
+
+func collectRun2() {
+	for {
+		log.Print(2)
+		time.Sleep(5 * time.Second)
+	}
+
+}
+
 func agentRun(opt *Options) error {
-	memStat := new(runtime.MemStats)
 
 	log.Printf("Server HOST: %s", opt.a)
 
-	for {
-		runtime.ReadMemStats(memStat)
-		memStatMap := handlers.CollectMemStat(*memStat)
-		for key, value := range memStatMap {
-			err := handlers.SendRequestMemStat(opt.a, "gauge", key, value)
-			if err != nil {
-				log.Print(err)
-				continue
-			}
-		}
+	db := storage.NewMemStorage()
+	agentServices := service.NewMetricService(db)
+	memStat := new(runtime.MemStats)
 
-		PollCount += 1
+	go handlers.CollectStat(memStat, agentServices, opt.p)
 
-		err := handlers.SendRequestMemStat(opt.a, "counter", "PollCount", strconv.Itoa(PollCount))
-		if err != nil {
-			log.Print(err)
-		}
-
-		time.Sleep(2 * time.Second)
+	err := handlers.MakeRequestStat(agentServices, opt.a, opt.r)
+	if err != nil {
+		log.Print(err)
 	}
+
+	return nil
 }
 
 func main() {

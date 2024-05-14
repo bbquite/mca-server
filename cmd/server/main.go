@@ -39,9 +39,8 @@ func initOptions() *Options {
 }
 
 func main() {
-
-	srv := new(server.Server)
 	opt := initOptions()
+	srv := new(server.Server)
 	db := storage.NewMemStorage()
 	serv := service.NewMetricService(db)
 	handler := handlers.NewHandler(serv)
