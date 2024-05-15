@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -115,7 +116,8 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		body := strconv.Itoa(int(value))
+		body := fmt.Sprintf("%v", value)
+
 		w.Write([]byte(body))
 		w.Header().Set("Content-type", "text/plain")
 		w.WriteHeader(http.StatusOK)
@@ -130,7 +132,7 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		body := strconv.Itoa(int(value))
+		body := fmt.Sprintf("%v", value)
 		w.Write([]byte(body))
 		w.Header().Set("Content-type", "text/plain")
 		w.WriteHeader(http.StatusOK)
