@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"github.com/bbquite/mca-server/internal/handlers"
 	"github.com/bbquite/mca-server/internal/server"
@@ -46,8 +45,6 @@ func main() {
 	handler := handlers.NewHandler(serv)
 
 	if err := srv.Run(opt.a, handler.InitChiRoutes()); err != nil {
-		log.Fatalf("error occured while running http server: %s", err.Error())
+		log.Fatalf("error occured while running http server: %v", err)
 	}
-
-	defer srv.Shutdown(context.Background())
 }

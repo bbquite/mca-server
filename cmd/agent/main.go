@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/bbquite/mca-server/internal/handlers"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
@@ -56,38 +57,28 @@ func initOptions() *Options {
 	return opt
 }
 
-func collectRun() {
-	for {
-		log.Print(1)
-		time.Sleep(2 * time.Second)
-	}
-
-}
-
-func collectRun2() {
-	for {
-		log.Print(2)
-		time.Sleep(5 * time.Second)
-	}
-
-}
-
 func agentRun(opt *Options) error {
 
-	log.Printf("Server HOST: %s", opt.a)
+	log.Printf("INFO | Server HOST: %s", opt.a)
 
 	db := storage.NewMemStorage()
 	agentServices := service.NewMetricService(db)
 	memStat := new(runtime.MemStats)
 
-	go handlers.CollectStat(memStat, agentServices, opt.p)
+	collectTicker := time.NewTicker(time.Duration(opt.p) * time.Second)
+	requestTicker := time.NewTicker(time.Duration(opt.p) * time.Second)
 
-	err := handlers.MakeRequestStat(agentServices, opt.a, opt.r)
-	if err != nil {
-		log.Print(err)
+	for {
+		select {
+		case <-collectTicker.C:
+			handlers.CollectStat(memStat, agentServices)
+		case <-requestTicker.C:
+			err := handlers.MakeRequestStat(agentServices, opt.a)
+			if err != nil {
+				return fmt.Errorf("ERROR | Falied to make request: %v", err)
+			}
+		}
 	}
-
-	return nil
 }
 
 func main() {

@@ -11,6 +11,7 @@ var (
 
 	ErrorGaugeNotFound   = errors.New("gauge not found")
 	ErrorCounterNotFound = errors.New("counters not found")
+	ErrorGettingMetrics  = errors.New("error getting metrics")
 )
 
 type MemStorageRepo interface {
@@ -63,8 +64,7 @@ func (h *MetricService) GetCounterItem(key string) (model.Counter, error) {
 func (h *MetricService) GetAllGaugeItems() (map[string]string, error) {
 	result, err := h.store.GetAllGaugeItems()
 	if !err {
-		return map[string]string{}, errors.New("error getting metrics")
-
+		return map[string]string{}, ErrorGettingMetrics
 	}
 	return result, nil
 }
@@ -72,7 +72,7 @@ func (h *MetricService) GetAllGaugeItems() (map[string]string, error) {
 func (h *MetricService) GetAllCounterItems() (map[string]string, error) {
 	result, err := h.store.GetAllCounterItems()
 	if !err {
-		return map[string]string{}, errors.New("error getting metrics")
+		return map[string]string{}, ErrorGettingMetrics
 	}
 	return result, nil
 }
