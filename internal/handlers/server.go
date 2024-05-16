@@ -121,7 +121,7 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		body := strconv.FormatFloat(float64(value), 'f', 3, 64)
+		body := strconv.FormatFloat(float64(value), 'f', -1, 64)
 
 		w.Write([]byte(body))
 		w.Header().Set("Content-type", "text/plain")
