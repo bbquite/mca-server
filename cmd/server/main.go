@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"github.com/bbquite/mca-server/internal/handlers"
 	"github.com/bbquite/mca-server/internal/server"
@@ -8,6 +9,7 @@ import (
 	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/joho/godotenv"
 	"log"
+	"net/http"
 	"os"
 )
 
@@ -45,6 +47,8 @@ func main() {
 	handler := handlers.NewHandler(serv)
 
 	if err := srv.Run(opt.a, handler.InitChiRoutes()); err != nil {
-		log.Fatalf("error occured while running http server: %v", err)
+		if !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("error occured while running http server: %v", err)
+		}
 	}
 }

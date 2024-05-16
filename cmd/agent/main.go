@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/bbquite/mca-server/internal/handlers"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
@@ -75,7 +74,7 @@ func agentRun(opt *Options) error {
 		case <-requestTicker.C:
 			err := handlers.MakeRequestStat(agentServices, opt.a)
 			if err != nil {
-				return fmt.Errorf("ERROR | Falied to make request: %v", err)
+				log.Printf("ERROR | Falied to make request: %v", err)
 			}
 		}
 	}

@@ -13,12 +13,19 @@ import (
 	"strconv"
 )
 
+//go:embed html/index.gohtml
+var htmlTemplateEmbed string
+
 type Handler struct {
-	services *service.MetricService
+	services      *service.MetricService
+	indexTemplate *template.Template
 }
 
 func NewHandler(services *service.MetricService) *Handler {
-	return &Handler{services: services}
+	return &Handler{
+		services:      services,
+		indexTemplate: template.Must(template.New("indexTemplate").Parse(htmlTemplateEmbed)),
+	}
 }
 
 // InitRoutes Оригинальньный роутер
@@ -57,8 +64,9 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 
 		_, err = h.services.AddGaugeItem(mName, model.Gauge(metricValue))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			log.Printf("caught the problem: %v", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			log.Printf("ERROR | caught the problem: %v", err)
+			return
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -72,8 +80,9 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 
 		_, err = h.services.AddCounterItem(mName, model.Counter(metricValue))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			log.Printf("caught the problem: %v", err)
+			http.Error(w, "", http.StatusInternalServerError)
+			log.Printf("ERROR | caught the problem: %v", err)
+			return
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -83,29 +92,30 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//go:embed html/index.gohtml
-var htmlTemplateEmbed string
-
 func (h *Handler) getAllMetrics(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-type", "text/html; charset=UTF-8")
 
-	tmp, err := template.New("indexTemplate").Parse(htmlTemplateEmbed)
+	gauge, err := h.services.GetAllGaugeItems()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("ERROR %v", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		log.Printf("ERROR | caught the problem: %v", err)
 		return
 	}
 
-	gauge, _ := h.services.GetAllGaugeItems()
-	counter, _ := h.services.GetAllCounterItems()
+	counter, err := h.services.GetAllCounterItems()
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		log.Printf("ERROR | caught the problem: %v", err)
+		return
+	}
+
 	data := map[string]map[string]map[string]string{
 		"metrics": {
 			"counter": counter,
 			"gauge":   gauge,
 		},
 	}
-	tmp.Execute(w, data)
+	h.indexTemplate.Execute(w, data)
 }
 
 func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {

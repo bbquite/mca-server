@@ -174,9 +174,8 @@ func MakeRequestStat(services *service.MetricService, host string) error {
 
 		response, err := client.Do(request)
 		if err != nil {
-			log.Printf("clent request error ---> %v", err)
+			log.Printf("clent request error: %v", err)
 			return nil
-			//return fmt.Errorf("clent request error ---> %w", err)
 		}
 
 		err = response.Body.Close()
@@ -185,8 +184,7 @@ func MakeRequestStat(services *service.MetricService, host string) error {
 		}
 
 		if response.StatusCode != 200 {
-			log.Printf("bad server response, status code: %d", response.StatusCode)
-			//return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
+			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
 		}
 	}
 
@@ -202,7 +200,7 @@ func MakeRequestStat(services *service.MetricService, host string) error {
 
 		response, err := client.Do(request)
 		if err != nil {
-			log.Printf("clent request error ---> %v", err)
+			log.Printf("clent request error: %v", err)
 			return nil
 		}
 
@@ -212,8 +210,7 @@ func MakeRequestStat(services *service.MetricService, host string) error {
 		}
 
 		if response.StatusCode != 200 {
-			log.Printf("bad server response, status code: %d", response.StatusCode)
-			//return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
+			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
 		}
 	}
 
