@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	_ "embed"
 	"errors"
-	"fmt"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -10,7 +10,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"path/filepath"
 	"strconv"
 )
 
@@ -84,23 +83,29 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//go:embed html/index.gohtml
+var htmlTemplateEmbed string
+
 func (h *Handler) getAllMetrics(w http.ResponseWriter, r *http.Request) {
+
 	w.Header().Set("Content-type", "text/html; charset=UTF-8")
 
-	if t, err := template.ParseFiles(filepath.Join("web", "index.gohtml")); err != nil {
+	tmp, err := template.New("indexTemplate").Parse(htmlTemplateEmbed)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("ERROR %s", err.Error())
-	} else {
-		gauge, _ := h.services.GetAllGaugeItems()
-		counter, _ := h.services.GetAllCounterItems()
-		data := map[string]map[string]map[string]string{
-			"metrics": {
-				"counter": counter,
-				"gauge":   gauge,
-			},
-		}
-		t.Execute(w, data)
+		log.Printf("ERROR %v", err)
+		return
 	}
+
+	gauge, _ := h.services.GetAllGaugeItems()
+	counter, _ := h.services.GetAllCounterItems()
+	data := map[string]map[string]map[string]string{
+		"metrics": {
+			"counter": counter,
+			"gauge":   gauge,
+		},
+	}
+	tmp.Execute(w, data)
 }
 
 func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +121,7 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		body := fmt.Sprintf("%v", value)
+		body := strconv.FormatFloat(float64(value), 'g', 5, 64)
 
 		w.Write([]byte(body))
 		w.Header().Set("Content-type", "text/plain")
@@ -132,7 +137,8 @@ func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		body := fmt.Sprintf("%v", value)
+		body := strconv.Itoa(int(value))
+
 		w.Write([]byte(body))
 		w.Header().Set("Content-type", "text/plain")
 		w.WriteHeader(http.StatusOK)
