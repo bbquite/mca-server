@@ -1,13 +1,18 @@
 package handlers
 
 import (
+	_ "embed"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/stretchr/testify/assert"
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+//go:embed html/index.gohtml
+var htmlTemplateEmbed string
 
 func Test_apiHandler(t *testing.T) {
 	type want struct {
@@ -55,7 +60,9 @@ func Test_apiHandler(t *testing.T) {
 
 	db := storage.NewMemStorage()
 	serv := service.NewMetricService(db)
-	handler := NewHandler(serv)
+
+	indexTemplate := template.Must(template.New("indexTemplate").Parse(htmlTemplateEmbed))
+	handler := NewHandler(serv, indexTemplate)
 	mux := handler.InitChiRoutes()
 
 	for _, test := range tests {
