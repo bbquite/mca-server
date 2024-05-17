@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	_ "embed"
 	"errors"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
@@ -13,18 +12,15 @@ import (
 	"strconv"
 )
 
-//go:embed html/index.gohtml
-var htmlTemplateEmbed string
-
 type Handler struct {
 	services      *service.MetricService
 	indexTemplate *template.Template
 }
 
-func NewHandler(services *service.MetricService) *Handler {
+func NewHandler(services *service.MetricService, tmpl *template.Template) *Handler {
 	return &Handler{
 		services:      services,
-		indexTemplate: template.Must(template.New("indexTemplate").Parse(htmlTemplateEmbed)),
+		indexTemplate: tmpl,
 	}
 }
 
