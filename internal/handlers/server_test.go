@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	_ "embed"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/stretchr/testify/assert"
@@ -10,9 +9,6 @@ import (
 	"net/http/httptest"
 	"testing"
 )
-
-//go:embed html/index.gohtml
-var htmlTemplateEmbed string
 
 func Test_apiHandler(t *testing.T) {
 	type want struct {
