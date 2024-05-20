@@ -32,8 +32,6 @@ func NewHandler(services *service.MetricService) (*Handler, error) {
 	}, nil
 }
 
-//indexTemplate := template.Must(template.New("indexTemplate").Parse(htmlTemplateEmbed))
-
 // InitRoutes Оригинальньный роутер
 func (h *Handler) InitRoutes() *http.ServeMux {
 	mux := http.NewServeMux()

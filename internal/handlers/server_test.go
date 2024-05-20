@@ -5,7 +5,7 @@ import (
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/stretchr/testify/assert"
-	"html/template"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -61,8 +61,11 @@ func Test_apiHandler(t *testing.T) {
 	db := storage.NewMemStorage()
 	serv := service.NewMetricService(db)
 
-	indexTemplate := template.Must(template.New("indexTemplate").Parse(htmlTemplateEmbed))
-	handler := NewHandler(serv, indexTemplate)
+	handler, err := NewHandler(serv)
+	if err != nil {
+		log.Fatalf("handler construction error: %v", err)
+	}
+
 	mux := handler.InitChiRoutes()
 
 	for _, test := range tests {
