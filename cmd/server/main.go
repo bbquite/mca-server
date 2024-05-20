@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "embed"
 	"errors"
 	"flag"
 	"github.com/bbquite/mca-server/internal/handlers"
@@ -9,7 +8,6 @@ import (
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/joho/godotenv"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -18,9 +16,6 @@ import (
 const (
 	defHost string = "localhost:8080"
 )
-
-//go:embed html/index.gohtml
-var htmlTemplateEmbed string
 
 type Options struct {
 	a string
@@ -50,8 +45,10 @@ func main() {
 	db := storage.NewMemStorage()
 	serv := service.NewMetricService(db)
 
-	indexTemplate := template.Must(template.New("indexTemplate").Parse(htmlTemplateEmbed))
-	handler := handlers.NewHandler(serv, indexTemplate)
+	handler, err := handlers.NewHandler(serv)
+	if err != nil {
+		log.Fatalf("handler construction error: %v", err)
+	}
 
 	if err := srv.Run(opt.a, handler.InitChiRoutes()); err != nil {
 		if !errors.Is(err, http.ErrServerClosed) {

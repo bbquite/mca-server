@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	_ "embed"
 	"errors"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
@@ -12,17 +13,26 @@ import (
 	"strconv"
 )
 
+//go:embed html/index.gohtml
+var htmlTemplateEmbed string
+
 type Handler struct {
 	services      *service.MetricService
 	indexTemplate *template.Template
 }
 
-func NewHandler(services *service.MetricService, tmpl *template.Template) *Handler {
+func NewHandler(services *service.MetricService) (*Handler, error) {
+	tml, err := template.New("indexTemplate").Parse(htmlTemplateEmbed)
+	if err != nil {
+		return &Handler{}, err
+	}
 	return &Handler{
 		services:      services,
-		indexTemplate: tmpl,
-	}
+		indexTemplate: tml,
+	}, nil
 }
+
+//indexTemplate := template.Must(template.New("indexTemplate").Parse(htmlTemplateEmbed))
 
 // InitRoutes Оригинальньный роутер
 func (h *Handler) InitRoutes() *http.ServeMux {
