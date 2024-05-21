@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Index Page</title>
+</head>
+<body>
+    <h1>Текущие метрики:</h1>
+    <h2>Gauge</h2>
+    <ul>
+        {{ range $key, $value := .metrics.gauge }}
+        <li>
+            <b>{{ $key }}</b><span>: {{ $value }}</span>
+        </li>
+        {{ end }}
+    </ul>
+    <hr>
+    <h2>Counter</h2>
+    <ul>
+        {{ range $key, $value := .metrics.counter }}
+            <li>
+                <b>{{ $key }}</b><span>: {{ $value }}</span>
+            </li>
+        {{ end }}
+    </ul>
+</body>
+</html>
