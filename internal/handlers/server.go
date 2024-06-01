@@ -3,10 +3,11 @@ package handlers
 import (
 	_ "embed"
 	"errors"
+	"github.com/bbquite/mca-server/internal/middleware"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 	"html/template"
 	"log"
 	"net/http"
@@ -19,6 +20,7 @@ var htmlTemplateEmbed string
 type Handler struct {
 	services      *service.MetricService
 	indexTemplate *template.Template
+	logger        *zap.SugaredLogger
 }
 
 func NewHandler(services *service.MetricService) (*Handler, error) {
@@ -26,9 +28,18 @@ func NewHandler(services *service.MetricService) (*Handler, error) {
 	if err != nil {
 		return &Handler{}, err
 	}
+
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		return &Handler{}, err
+	}
+	sugar := logger.Sugar()
+	defer logger.Sync()
+
 	return &Handler{
 		services:      services,
 		indexTemplate: tml,
+		logger:        sugar,
 	}, nil
 }
 
@@ -42,7 +53,10 @@ func (h *Handler) InitRoutes() *http.ServeMux {
 // InitChiRoutes Роутер с chi
 func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
-	chiRouter.Use(middleware.Logger)
+
+	//chiRouter.Use(middleware.Logger)
+	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
+
 	chiRouter.Route("/", func(r chi.Router) {
 		r.Get("/", h.getAllMetrics)
 		r.Get("/value/{m_type}/{m_name}", h.getMetricByName)
