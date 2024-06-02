@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"github.com/bbquite/mca-server/internal/middleware"
 	"github.com/bbquite/mca-server/internal/model"
@@ -43,27 +45,75 @@ func NewHandler(services *service.MetricService) (*Handler, error) {
 	}, nil
 }
 
-// InitRoutes Оригинальньный роутер
-func (h *Handler) InitRoutes() *http.ServeMux {
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /update/{m_type}/{m_name}/{m_value}", h.addMetricByName)
-	return mux
-}
-
-// InitChiRoutes Роутер с chi
 func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
-
-	//chiRouter.Use(middleware.Logger)
 	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
-
 	chiRouter.Route("/", func(r chi.Router) {
 		r.Get("/", h.getAllMetrics)
-		r.Get("/value/{m_type}/{m_name}", h.getMetricByName)
-		r.Post("/update/{m_type}/{m_name}/{m_value}", h.addMetricByName)
+		r.Route("/value/", func(r chi.Router) {
+			r.Post("/", h.getMetricJSON)
+			r.Get("/{m_type}/{m_name}", h.getMetricByName)
+		})
+		r.Route("/update/", func(r chi.Router) {
+			r.Post("/", h.addMetricByNameJSON)
+			r.Post("/{m_type}/{m_name}/{m_value}", h.addMetricByName)
+		})
 	})
 
 	return chiRouter
+}
+
+func (h *Handler) addMetricByNameJSON(w http.ResponseWriter, r *http.Request) {
+
+	var metric model.Metric
+	var buf bytes.Buffer
+
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("ERROR | caught the problem: %v", err)
+		return
+	}
+
+	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("ERROR | caught the problem: %v", err)
+		return
+	}
+
+	switch metric.MType {
+	case "gauge":
+		_, err = h.services.AddGaugeItem(metric.ID, model.Gauge(metric.Value))
+		if err != nil {
+			http.Error(w, "", http.StatusInternalServerError)
+			log.Printf("ERROR | caught the problem: %v", err)
+			return
+		}
+
+	case "counter":
+		_, err = h.services.AddCounterItem(metric.ID, model.Counter(metric.Delta))
+		if err != nil {
+			http.Error(w, "", http.StatusInternalServerError)
+			log.Printf("ERROR | caught the problem: %v", err)
+			return
+		}
+
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	resp, err := json.Marshal(metric)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("ERROR | caught the problem: %v", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
+	return
+
 }
 
 func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
@@ -134,6 +184,77 @@ func (h *Handler) getAllMetrics(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	h.indexTemplate.Execute(w, data)
+}
+
+func (h *Handler) getMetricJSON(w http.ResponseWriter, r *http.Request) {
+
+	var metric model.Metric
+	var metricResponse model.Metric
+	var buf bytes.Buffer
+	var metricGaugValue model.Gauge
+	var metricCounterValue model.Counter
+
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("ERROR | caught the problem: %v", err)
+		return
+	}
+
+	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("ERROR | caught the problem: %v", err)
+		return
+	}
+
+	switch metric.MType {
+	case "gauge":
+		metricGaugValue, err = h.services.GetGaugeItem(metric.ID)
+		if err != nil {
+			if !errors.Is(err, service.ErrorGaugeNotFound) {
+				http.Error(w, "", http.StatusInternalServerError)
+				log.Printf("ERROR | caught the problem: %v", err)
+				return
+			}
+		}
+
+		metricResponse = model.Metric{
+			ID:    metric.ID,
+			MType: metric.MType,
+			Value: float64(metricGaugValue),
+		}
+
+	case "counter":
+		metricCounterValue, err = h.services.GetCounterItem(metric.ID)
+		if err != nil {
+			if !errors.Is(err, service.ErrorCounterNotFound) {
+				http.Error(w, "", http.StatusInternalServerError)
+				log.Printf("ERROR | caught the problem: %v", err)
+				return
+			}
+		}
+
+		metricResponse = model.Metric{
+			ID:    metric.ID,
+			MType: metric.MType,
+			Delta: int64(metricCounterValue),
+		}
+
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	resp, err := json.Marshal(metricResponse)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("ERROR | caught the problem: %v", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
+	return
 }
 
 func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
