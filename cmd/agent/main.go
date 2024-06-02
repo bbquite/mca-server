@@ -70,9 +70,10 @@ func agentRun(opt *Options) error {
 	for {
 		select {
 		case <-collectTicker.C:
-			handlers.CollectStat(memStat, agentServices)
+			handlers.MetricsCollect(memStat, agentServices)
 		case <-requestTicker.C:
-			err := handlers.MakeRequestStat(agentServices, opt.a)
+			//err := handlers.MetricsUriRequest(agentServices, opt.a)
+			err := handlers.MetricsPostRequest(agentServices, opt.a)
 			if err != nil {
 				log.Printf("ERROR | Falied to make request: %v", err)
 			}

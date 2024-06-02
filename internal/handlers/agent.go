@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
@@ -8,10 +10,11 @@ import (
 	"math/rand"
 	"net/http"
 	"runtime"
+	"strconv"
 	"time"
 )
 
-func CollectStat(memStat *runtime.MemStats, services *service.MetricService) {
+func MetricsCollect(memStat *runtime.MemStats, services *service.MetricService) {
 
 	log.Print("INFO | Collecting metrics and recording in storage")
 	runtime.ReadMemStats(memStat)
@@ -153,7 +156,7 @@ func CollectStat(memStat *runtime.MemStats, services *service.MetricService) {
 	}
 }
 
-func MakeRequestStat(services *service.MetricService, host string) error {
+func MetricsUriRequest(services *service.MetricService, host string) error {
 	var url string
 
 	log.Printf("INFO | Sending metrics to %s", host)
@@ -197,6 +200,102 @@ func MakeRequestStat(services *service.MetricService, host string) error {
 
 		request, _ := http.NewRequest(http.MethodPost, url, http.NoBody)
 		request.Header.Set("Content-Type", "Content-Type: text/plain")
+
+		response, err := client.Do(request)
+		if err != nil {
+			log.Printf("clent request error: %v", err)
+			return nil
+		}
+
+		err = response.Body.Close()
+		if err != nil {
+			return err
+		}
+
+		if response.StatusCode != 200 {
+			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
+		}
+	}
+
+	return nil
+}
+
+func MetricsPostRequest(services *service.MetricService, host string) error {
+
+	url := fmt.Sprintf("http://%s/update/", host)
+
+	log.Printf("INFO | Sending metrics to %s", host)
+
+	client := http.Client{
+		Timeout: time.Second * 1,
+	}
+
+	gauge, err := services.GetAllGaugeItems()
+	if err != nil {
+		return fmt.Errorf("gauge metrics collection error: %v", err)
+	}
+
+	for key, value := range gauge {
+		metricValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return fmt.Errorf("parse float err: %v", err)
+		}
+
+		metric := model.Metric{
+			ID:    key,
+			MType: "gauge",
+			Value: metricValue,
+		}
+
+		body, err := json.Marshal(metric)
+		if err != nil {
+			return fmt.Errorf("err: %v", err)
+		}
+
+		request, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+		request.Header.Set("Content-Type", "application/json")
+
+		response, err := client.Do(request)
+		if err != nil {
+			log.Printf("clent request error: %v", err)
+			return nil
+		}
+
+		err = response.Body.Close()
+		if err != nil {
+			return err
+		}
+
+		if response.StatusCode != 200 {
+			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
+		}
+
+	}
+
+	counter, err := services.GetAllCounterItems()
+	if err != nil {
+		return fmt.Errorf("counter metrics collection error: %v", err)
+	}
+
+	for key, value := range counter {
+		metricValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("parse int err: %v", err)
+		}
+
+		metric := model.Metric{
+			ID:    key,
+			MType: "counter",
+			Delta: metricValue,
+		}
+
+		body, err := json.Marshal(metric)
+		if err != nil {
+			return fmt.Errorf("err: %v", err)
+		}
+
+		request, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+		request.Header.Set("Content-Type", "application/json")
 
 		response, err := client.Do(request)
 		if err != nil {
