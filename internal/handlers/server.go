@@ -5,15 +5,15 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"html/template"
+	"net/http"
+	"strconv"
+
 	"github.com/bbquite/mca-server/internal/middleware"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"html/template"
-	"log"
-	"net/http"
-	"strconv"
 )
 
 //go:embed html/index.gohtml
@@ -49,21 +49,21 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
 	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
 	chiRouter.Route("/", func(r chi.Router) {
-		r.Get("/", h.getAllMetrics)
+		r.Get("/", h.renderMetricsPage)
 		r.Route("/value/", func(r chi.Router) {
-			r.Post("/", h.getMetricJSON)
-			r.Get("/{m_type}/{m_name}", h.getMetricByName)
+			r.Post("/", h.valueMetricJSON)
+			r.Get("/{m_type}/{m_name}", h.valueMetricURI)
 		})
 		r.Route("/update/", func(r chi.Router) {
-			r.Post("/", h.addMetricByNameJSON)
-			r.Post("/{m_type}/{m_name}/{m_value}", h.addMetricByName)
+			r.Post("/", h.updateMetricJSON)
+			r.Post("/{m_type}/{m_name}/{m_value}", h.updateMetricURI)
 		})
 	})
 
 	return chiRouter
 }
 
-func (h *Handler) addMetricByNameJSON(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 
 	var metric model.Metric
 	var buf bytes.Buffer
@@ -71,13 +71,12 @@ func (h *Handler) addMetricByNameJSON(w http.ResponseWriter, r *http.Request) {
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		log.Printf("ERROR | caught the problem: %v", err)
 		return
 	}
 
 	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		log.Printf("ERROR | caught the problem: %v", err)
+		h.logger.Info(err)
 		return
 	}
 
@@ -86,7 +85,7 @@ func (h *Handler) addMetricByNameJSON(w http.ResponseWriter, r *http.Request) {
 		_, err = h.services.AddGaugeItem(metric.ID, model.Gauge(metric.Value))
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
-			log.Printf("ERROR | caught the problem: %v", err)
+			h.logger.Error(err)
 			return
 		}
 
@@ -94,7 +93,7 @@ func (h *Handler) addMetricByNameJSON(w http.ResponseWriter, r *http.Request) {
 		_, err = h.services.AddCounterItem(metric.ID, model.Counter(metric.Delta))
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
-			log.Printf("ERROR | caught the problem: %v", err)
+			h.logger.Error(err)
 			return
 		}
 
@@ -106,17 +105,15 @@ func (h *Handler) addMetricByNameJSON(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(metric)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("ERROR | caught the problem: %v", err)
+		h.logger.Error(err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
-	return
-
 }
 
-func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) updateMetricURI(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "m_type")
 	mName := chi.URLParam(r, "m_name")
 	mValue := chi.URLParam(r, "m_value")
@@ -133,7 +130,7 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 		_, err = h.services.AddGaugeItem(mName, model.Gauge(metricValue))
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
-			log.Printf("ERROR | caught the problem: %v", err)
+			h.logger.Error(err)
 			return
 		}
 
@@ -149,7 +146,7 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 		_, err = h.services.AddCounterItem(mName, model.Counter(metricValue))
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
-			log.Printf("ERROR | caught the problem: %v", err)
+			h.logger.Error(err)
 			return
 		}
 
@@ -160,20 +157,20 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) getAllMetrics(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-type", "text/html; charset=UTF-8")
 
 	gauge, err := h.services.GetAllGaugeItems()
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
-		log.Printf("ERROR | caught the problem: %v", err)
+		h.logger.Error(err)
 		return
 	}
 
 	counter, err := h.services.GetAllCounterItems()
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
-		log.Printf("ERROR | caught the problem: %v", err)
+		h.logger.Error(err)
 		return
 	}
 
@@ -186,34 +183,34 @@ func (h *Handler) getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	h.indexTemplate.Execute(w, data)
 }
 
-func (h *Handler) getMetricJSON(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 
 	var metric model.Metric
 	var metricResponse model.Metric
-	var buf bytes.Buffer
-	var metricGaugValue model.Gauge
+
+	var metricGaugeValue model.Gauge
 	var metricCounterValue model.Counter
+
+	var buf bytes.Buffer
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		log.Printf("ERROR | caught the problem: %v", err)
 		return
 	}
 
 	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		log.Printf("ERROR | caught the problem: %v", err)
 		return
 	}
 
 	switch metric.MType {
 	case "gauge":
-		metricGaugValue, err = h.services.GetGaugeItem(metric.ID)
+		metricGaugeValue, err = h.services.GetGaugeItem(metric.ID)
 		if err != nil {
 			if !errors.Is(err, service.ErrorGaugeNotFound) {
 				http.Error(w, "", http.StatusInternalServerError)
-				log.Printf("ERROR | caught the problem: %v", err)
+				h.logger.Error(err)
 				return
 			}
 		}
@@ -221,7 +218,7 @@ func (h *Handler) getMetricJSON(w http.ResponseWriter, r *http.Request) {
 		metricResponse = model.Metric{
 			ID:    metric.ID,
 			MType: metric.MType,
-			Value: float64(metricGaugValue),
+			Value: float64(metricGaugeValue),
 		}
 
 	case "counter":
@@ -229,7 +226,7 @@ func (h *Handler) getMetricJSON(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if !errors.Is(err, service.ErrorCounterNotFound) {
 				http.Error(w, "", http.StatusInternalServerError)
-				log.Printf("ERROR | caught the problem: %v", err)
+				h.logger.Error(err)
 				return
 			}
 		}
@@ -248,16 +245,15 @@ func (h *Handler) getMetricJSON(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(metricResponse)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("ERROR | caught the problem: %v", err)
+		h.logger.Error(err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
-	return
 }
 
-func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) valueMetricURI(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "m_type")
 	mName := chi.URLParam(r, "m_name")
 

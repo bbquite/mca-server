@@ -3,14 +3,15 @@ package main
 import (
 	"errors"
 	"flag"
+	"log"
+	"net/http"
+	"os"
+
 	"github.com/bbquite/mca-server/internal/handlers"
 	"github.com/bbquite/mca-server/internal/server"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/joho/godotenv"
-	"log"
-	"net/http"
-	"os"
 )
 
 const (

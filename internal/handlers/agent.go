@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/bbquite/mca-server/internal/model"
-	"github.com/bbquite/mca-server/internal/service"
 	"log"
 	"math/rand"
 	"net/http"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/bbquite/mca-server/internal/model"
+	"github.com/bbquite/mca-server/internal/service"
 )
 
 func MetricsCollect(memStat *runtime.MemStats, services *service.MetricService) {
@@ -156,7 +157,7 @@ func MetricsCollect(memStat *runtime.MemStats, services *service.MetricService) 
 	}
 }
 
-func MetricsUriRequest(services *service.MetricService, host string) error {
+func MetricsURIRequest(services *service.MetricService, host string) error {
 	var url string
 
 	log.Printf("INFO | Sending metrics to %s", host)
@@ -220,7 +221,7 @@ func MetricsUriRequest(services *service.MetricService, host string) error {
 	return nil
 }
 
-func MetricsPostRequest(services *service.MetricService, host string) error {
+func MetricsJSONRequest(services *service.MetricService, host string) error {
 
 	url := fmt.Sprintf("http://%s/update/", host)
 

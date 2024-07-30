@@ -2,15 +2,16 @@ package main
 
 import (
 	"flag"
-	"github.com/bbquite/mca-server/internal/handlers"
-	"github.com/bbquite/mca-server/internal/service"
-	"github.com/bbquite/mca-server/internal/storage"
-	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/bbquite/mca-server/internal/handlers"
+	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/storage"
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -72,8 +73,8 @@ func agentRun(opt *Options) error {
 		case <-collectTicker.C:
 			handlers.MetricsCollect(memStat, agentServices)
 		case <-requestTicker.C:
-			//err := handlers.MetricsUriRequest(agentServices, opt.a)
-			err := handlers.MetricsPostRequest(agentServices, opt.a)
+			//err := handlers.MetricsURIRequest(agentServices, opt.a)
+			err := handlers.MetricsJSONRequest(agentServices, opt.a)
 			if err != nil {
 				log.Printf("ERROR | Falied to make request: %v", err)
 			}
