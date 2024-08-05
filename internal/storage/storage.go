@@ -46,10 +46,10 @@ func (storage *MemStorage) GetCounterItem(key string) (model.Counter, bool) {
 	return 0, false
 }
 
-func (storage *MemStorage) GetAllGaugeItems() (map[string]model.Gauge, bool) {
-	res := map[string]model.Gauge{}
+func (storage *MemStorage) GetAllGaugeItems() (map[string]string, bool) {
+	res := map[string]string{}
 	for key, value := range storage.GaugeItems {
-		res[key] = value
+		res[key] = fmt.Sprintf("%.2f", value)
 	}
 	return res, true
 }

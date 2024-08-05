@@ -228,9 +228,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 
 	logger.Infof("Sending metrics to %s", host)
 
-	client := http.Client{
-		Timeout: time.Second * 1,
-	}
+	client := http.Client{}
 
 	gauge, err := services.GetAllGaugeItems()
 	if err != nil {
@@ -239,10 +237,15 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 
 	for key, value := range gauge {
 
+		metricValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return fmt.Errorf("parse float err: %v", err)
+		}
+
 		metric := model.Metric{
 			ID:    key,
 			MType: "gauge",
-			Value: float64(value),
+			Value: metricValue,
 		}
 
 		body, err := json.Marshal(metric)
