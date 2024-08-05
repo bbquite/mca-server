@@ -253,12 +253,10 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 			return err
 		}
 
-		logger.Debugf("%s = %f", key, value)
-
 		request, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
 		request.Header.Set("Content-Type", "application/json")
 
-		logger.Debugf("%s", request.Body)
+		logger.Debugf("%s %s", url, request.Body)
 
 		response, err := client.Do(request)
 		if err != nil {

@@ -80,6 +80,8 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Debugf("| req %s", metric)
+
 	switch metric.MType {
 	case "gauge":
 		_, err = h.services.AddGaugeItem(metric.ID, model.Gauge(metric.Value))
@@ -111,6 +113,7 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
+	h.logger.Debugf("| resp %s", resp)
 }
 
 func (h *Handler) updateMetricURI(w http.ResponseWriter, r *http.Request) {
@@ -204,6 +207,8 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Debugf("| req %s", metric)
+
 	switch metric.MType {
 	case "gauge":
 		metricGaugeValue, err = h.services.GetGaugeItem(metric.ID)
@@ -257,6 +262,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
+	h.logger.Debugf("| resp %s", resp)
 }
 
 func (h *Handler) valueMetricURI(w http.ResponseWriter, r *http.Request) {
