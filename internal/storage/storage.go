@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+
 	"github.com/bbquite/mca-server/internal/model"
 )
 
@@ -45,10 +46,10 @@ func (storage *MemStorage) GetCounterItem(key string) (model.Counter, bool) {
 	return 0, false
 }
 
-func (storage *MemStorage) GetAllGaugeItems() (map[string]string, bool) {
-	res := map[string]string{}
+func (storage *MemStorage) GetAllGaugeItems() (map[string]model.Gauge, bool) {
+	res := map[string]model.Gauge{}
 	for key, value := range storage.GaugeItems {
-		res[key] = fmt.Sprintf("%.2f", value)
+		res[key] = value
 	}
 	return res, true
 }

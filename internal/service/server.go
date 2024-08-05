@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+
 	"github.com/bbquite/mca-server/internal/model"
 )
 
@@ -21,7 +22,7 @@ type MemStorageRepo interface {
 	GetGaugeItem(key string) (model.Gauge, bool)
 	GetCounterItem(key string) (model.Counter, bool)
 
-	GetAllGaugeItems() (map[string]string, bool)
+	GetAllGaugeItems() (map[string]model.Gauge, bool)
 	GetAllCounterItems() (map[string]string, bool)
 }
 
@@ -61,10 +62,10 @@ func (h *MetricService) GetCounterItem(key string) (model.Counter, error) {
 	return 0, ErrorCounterNotFound
 }
 
-func (h *MetricService) GetAllGaugeItems() (map[string]string, error) {
+func (h *MetricService) GetAllGaugeItems() (map[string]model.Gauge, error) {
 	result, err := h.store.GetAllGaugeItems()
 	if !err {
-		return map[string]string{}, ErrorGettingMetrics
+		return map[string]model.Gauge{}, ErrorGettingMetrics
 	}
 	return result, nil
 }

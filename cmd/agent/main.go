@@ -12,6 +12,7 @@ import (
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,6 +25,17 @@ type Options struct {
 	a string
 	r int
 	p int
+}
+
+func initLogger() (*zap.SugaredLogger, error) {
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		return nil, err
+	}
+	sugar := logger.Sugar()
+	defer logger.Sync()
+
+	return sugar, nil
 }
 
 func initOptions() *Options {
@@ -57,9 +69,9 @@ func initOptions() *Options {
 	return opt
 }
 
-func agentRun(opt *Options) error {
+func agentRun(opt *Options, logger *zap.SugaredLogger) error {
 
-	log.Printf("INFO | Server HOST: %s", opt.a)
+	logger.Infof("Server HOST: %s", opt.a)
 
 	db := storage.NewMemStorage()
 	agentServices := service.NewMetricService(db)
@@ -71,21 +83,26 @@ func agentRun(opt *Options) error {
 	for {
 		select {
 		case <-collectTicker.C:
-			handlers.MetricsCollect(memStat, agentServices)
+			handlers.MetricsCollect(memStat, agentServices, logger)
 		case <-requestTicker.C:
 			//err := handlers.MetricsURIRequest(agentServices, opt.a)
-			err := handlers.MetricsJSONRequest(agentServices, opt.a)
+			err := handlers.MetricsJSONRequest(agentServices, opt.a, logger)
 			if err != nil {
-				log.Printf("ERROR | Falied to make request: %v", err)
+				logger.Errorf("Falied to make request: %v", err)
 			}
 		}
 	}
 }
 
 func main() {
+	agentLogger, err := initLogger()
+	if err != nil {
+		log.Fatalf("agent logger init error: %v", err)
+	}
+
 	opt := initOptions()
 
-	if err := agentRun(opt); err != nil {
+	if err := agentRun(opt, agentLogger); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -160,12 +160,12 @@ func (h *Handler) updateMetricURI(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-type", "text/html; charset=UTF-8")
 
-	gauge, err := h.services.GetAllGaugeItems()
-	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-		h.logger.Error(err)
-		return
-	}
+	// gauge, err := h.services.GetAllGaugeItems()
+	// if err != nil {
+	// 	http.Error(w, "", http.StatusInternalServerError)
+	// 	h.logger.Error(err)
+	// 	return
+	// }
 
 	counter, err := h.services.GetAllCounterItems()
 	if err != nil {
@@ -177,7 +177,7 @@ func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
 	data := map[string]map[string]map[string]string{
 		"metrics": {
 			"counter": counter,
-			"gauge":   gauge,
+			// "gauge":   gauge,
 		},
 	}
 	h.indexTemplate.Execute(w, data)
@@ -212,6 +212,9 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "", http.StatusInternalServerError)
 				h.logger.Error(err)
 				return
+			} else {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
 			}
 		}
 
@@ -227,6 +230,9 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 			if !errors.Is(err, service.ErrorCounterNotFound) {
 				http.Error(w, "", http.StatusInternalServerError)
 				h.logger.Error(err)
+				return
+			} else {
+				http.Error(w, err.Error(), http.StatusNotFound)
 				return
 			}
 		}
