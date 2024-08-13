@@ -18,7 +18,7 @@ import (
 
 func MetricsCollect(memStat *runtime.MemStats, services *service.MetricService, logger *zap.SugaredLogger) {
 
-	logger.Info("Collecting metrics and recording in storage")
+	logger.Info("collecting metrics")
 	runtime.ReadMemStats(memStat)
 
 	_, err := services.AddGaugeItem("Alloc", model.Gauge(memStat.Alloc))
@@ -225,55 +225,12 @@ func MetricsURIRequest(services *service.MetricService, host string) error {
 func MetricsJSONRequest(services *service.MetricService, host string, logger *zap.SugaredLogger) error {
 
 	url := fmt.Sprintf("http://%s/update/", host)
-
-	logger.Infof("Sending metrics to %s", host)
-
 	client := http.Client{}
 
-	gauge, err := services.GetAllGaugeItems()
-	if err != nil {
-		return fmt.Errorf("gauge metrics collection error: %v", err)
-	}
-
-	for key, value := range gauge {
-
-		metricValue, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("parse float err: %v", err)
-		}
-
-		metric := model.Metric{
-			ID:    key,
-			MType: "gauge",
-			Value: metricValue,
-		}
-
-		body, err := json.Marshal(metric)
-		if err != nil {
-			return err
-		}
-
-		request, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
-		request.Header.Set("Content-Type", "application/json")
-
-		logger.Debugf("%s %s", url, request.Body)
-
-		response, err := client.Do(request)
-		if err != nil {
-			logger.Error(err)
-			return nil
-		}
-
-		if response.StatusCode != 200 {
-			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
-		}
-
-		defer response.Body.Close()
-	}
-
 	counter, err := services.GetAllCounterItems()
+	logger.Infof("sending counter metrics")
 	if err != nil {
-		return fmt.Errorf("counter metrics collection error: %v", err)
+		return fmt.Errorf("counter metrics sending error: %v", err)
 	}
 
 	for key, value := range counter {
@@ -294,17 +251,63 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		}
 
 		request, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+		request.Close = true
 		request.Header.Set("Content-Type", "application/json")
+
+		logger.Debugf("TRY %s %s", url, request.Body)
 
 		response, err := client.Do(request)
 		if err != nil {
-			return err
+			logger.Error(err)
+			return nil
+		}
+		defer response.Body.Close()
+		logger.Debugf("OK %s %s", url, response.Status)
+
+		if response.StatusCode != 200 {
+			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
+		}
+	}
+
+	gauge, err := services.GetAllGaugeItems()
+	logger.Infof("sending gauge metrics")
+	if err != nil {
+		return fmt.Errorf("gauge metrics sending error: %v", err)
+	}
+
+	for key, value := range gauge {
+
+		metricValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return fmt.Errorf("parse float err: %v", err)
 		}
 
-		err = response.Body.Close()
-		if err != nil {
-			return err
+		metric := model.Metric{
+			ID:    key,
+			MType: "gauge",
+			Value: metricValue,
 		}
+
+		body, err := json.Marshal(metric)
+		if err != nil {
+			logger.Error(err)
+			return nil
+		}
+
+		request, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+		request.Close = true
+		request.Header.Set("Content-Type", "application/json")
+
+		logger.Debugf("TRY %s %s", url, request.Body)
+
+		response, err := client.Do(request)
+		if err != nil {
+			logger.Error(err)
+			return nil
+		}
+
+		defer response.Body.Close()
+		logger.Debugf("OK %s %s", url, response.Status)
 
 		if response.StatusCode != 200 {
 			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)

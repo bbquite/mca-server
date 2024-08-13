@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"log"
@@ -19,7 +20,7 @@ const (
 )
 
 type Options struct {
-	a string
+	A string `json:"host"`
 }
 
 func initOptions() *Options {
@@ -27,15 +28,18 @@ func initOptions() *Options {
 
 	err := godotenv.Load()
 	if err != nil {
-		log.Print("Error loading .env file")
+		log.Print(".env file not found")
 	}
 
 	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
-		opt.a = envHOST
+		opt.A = envHOST
 	} else {
-		flag.StringVar(&opt.a, "a", defHost, "server host")
+		flag.StringVar(&opt.A, "a", defHost, "server host")
 		flag.Parse()
 	}
+
+	jsonOptions, _ := json.Marshal(opt)
+	log.Printf("Current options: %s", jsonOptions)
 
 	return opt
 }
@@ -51,7 +55,7 @@ func main() {
 		log.Fatalf("handler construction error: %v", err)
 	}
 
-	if err := srv.Run(opt.a, handler.InitChiRoutes()); err != nil {
+	if err := srv.Run(opt.A, handler.InitChiRoutes()); err != nil {
 		if !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("error occured while running http server: %v", err)
 		}

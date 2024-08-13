@@ -1,10 +1,10 @@
 package server
 
 import (
-	"github.com/go-chi/chi/v5"
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type Server struct {
@@ -12,8 +12,6 @@ type Server struct {
 }
 
 func (s *Server) Run(host string, mux *chi.Mux) error {
-
-	log.Printf("INFO | Server HOST: %s", host)
 
 	s.httpServer = &http.Server{
 		Addr:           host,
