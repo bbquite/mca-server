@@ -25,30 +25,25 @@ type Handler struct {
 	logger        *zap.SugaredLogger
 }
 
-func NewHandler(services *service.MetricService) (*Handler, error) {
+func NewHandler(services *service.MetricService, logger *zap.SugaredLogger) (*Handler, error) {
 	tml, err := template.New("indexTemplate").Parse(htmlTemplateEmbed)
 	if err != nil {
 		return &Handler{}, err
 	}
 
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		return &Handler{}, err
-	}
-	sugar := logger.Sugar()
-	defer logger.Sync()
-
 	return &Handler{
 		services:      services,
 		indexTemplate: tml,
-		logger:        sugar,
+		logger:        logger,
 	}, nil
 }
 
 func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
+
 	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
 	chiRouter.Use(middleware.GzipMiddleware)
+
 	chiRouter.Route("/", func(r chi.Router) {
 		r.Get("/", h.renderMetricsPage)
 		r.Route("/value/", func(r chi.Router) {

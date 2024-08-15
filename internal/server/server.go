@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -20,6 +22,14 @@ func (s *Server) Run(host string, mux *chi.Mux) error {
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		log.Fatalf("shutdown error: %v\n", err)
+	} else {
+		log.Printf("gracefully stopped\n")
+	}
+	s.httpServer.RegisterOnShutdown(cancel)
 
 	return s.httpServer.ListenAndServe()
 }

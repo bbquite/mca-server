@@ -1,13 +1,15 @@
 package handlers
 
 import (
-	"github.com/bbquite/mca-server/internal/service"
-	"github.com/bbquite/mca-server/internal/storage"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/storage"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func Test_apiHandler(t *testing.T) {
@@ -54,10 +56,17 @@ func Test_apiHandler(t *testing.T) {
 		},
 	}
 
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("server logger init error: %v", err)
+	}
+	sugar := logger.Sugar()
+	defer logger.Sync()
+
 	db := storage.NewMemStorage()
 	serv := service.NewMetricService(db)
 
-	handler, err := NewHandler(serv)
+	handler, err := NewHandler(serv, sugar)
 	if err != nil {
 		log.Fatalf("handler construction error: %v", err)
 	}
