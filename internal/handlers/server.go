@@ -48,6 +48,7 @@ func NewHandler(services *service.MetricService) (*Handler, error) {
 func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
 	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
+	chiRouter.Use(middleware.GzipMiddleware)
 	chiRouter.Route("/", func(r chi.Router) {
 		r.Get("/", h.renderMetricsPage)
 		r.Route("/value/", func(r chi.Router) {
