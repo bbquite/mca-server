@@ -93,7 +93,17 @@ func MetricsCollect(memStat *runtime.MemStats, services *service.MetricService, 
 
 	_, err = services.AddGaugeItem("MCacheSys", model.Gauge(memStat.MCacheSys))
 	if err != nil {
+		logger.Errorf("metric saving error: MCacheSys = %v", memStat.MCacheSys)
+	}
+
+	_, err = services.AddGaugeItem("MSpanInuse", model.Gauge(memStat.MSpanInuse))
+	if err != nil {
 		logger.Errorf("metric saving error: MSpanInuse = %v", memStat.MSpanInuse)
+	}
+
+	_, err = services.AddGaugeItem("MSpanSys", model.Gauge(memStat.MSpanSys))
+	if err != nil {
+		logger.Errorf("metric saving error: MSpanSys = %v", memStat.MSpanSys)
 	}
 
 	_, err = services.AddGaugeItem("Mallocs", model.Gauge(memStat.Mallocs))
@@ -242,7 +252,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		metric := model.Metric{
 			ID:    key,
 			MType: "counter",
-			Delta: metricValue,
+			Delta: &metricValue,
 		}
 
 		body, err := json.Marshal(metric)
@@ -250,8 +260,14 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 			return fmt.Errorf("err: %v", err)
 		}
 
-		request, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
-		request.Close = true
+		bodySend := bytes.NewBuffer(body)
+
+		request, err := http.NewRequest(http.MethodPost, url, bodySend)
+		if err != nil {
+			logger.Error(err)
+			return err
+		}
+
 		request.Header.Set("Content-Type", "application/json")
 
 		logger.Debugf("TRY %s %s", url, request.Body)
@@ -261,6 +277,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 			logger.Error(err)
 			return nil
 		}
+
 		defer response.Body.Close()
 		logger.Debugf("OK %s %s", url, response.Status)
 
@@ -285,7 +302,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		metric := model.Metric{
 			ID:    key,
 			MType: "gauge",
-			Value: metricValue,
+			Value: &metricValue,
 		}
 
 		body, err := json.Marshal(metric)
@@ -294,8 +311,14 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 			return nil
 		}
 
-		request, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
-		request.Close = true
+		bodySend := bytes.NewBuffer(body)
+
+		request, err := http.NewRequest(http.MethodPost, url, bodySend)
+		if err != nil {
+			logger.Error(err)
+			return err
+		}
+
 		request.Header.Set("Content-Type", "application/json")
 
 		logger.Debugf("TRY %s %s", url, request.Body)

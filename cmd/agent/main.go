@@ -74,9 +74,6 @@ func initOptions() *Options {
 }
 
 func agentRun(opt *Options, logger *zap.SugaredLogger) error {
-
-	logger.Infof("Server HOST: %s", opt.A)
-
 	db := storage.NewMemStorage()
 	agentServices := service.NewMetricService(db)
 	memStat := new(runtime.MemStats)

@@ -74,17 +74,17 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Debugf("| req %s", buf.Bytes())
+
 	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		h.logger.Info(err)
 		return
 	}
 
-	h.logger.Debugf("| req %s", metric)
-
 	switch metric.MType {
 	case "gauge":
-		_, err = h.services.AddGaugeItem(metric.ID, model.Gauge(metric.Value))
+		_, err = h.services.AddGaugeItem(metric.ID, model.Gauge(*metric.Value))
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
 			h.logger.Error(err)
@@ -92,7 +92,7 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case "counter":
-		_, err = h.services.AddCounterItem(metric.ID, model.Counter(metric.Delta))
+		_, err = h.services.AddCounterItem(metric.ID, model.Counter(*metric.Delta))
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
 			h.logger.Error(err)
@@ -202,12 +202,12 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Debugf("| req %s", buf.Bytes())
+
 	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	h.logger.Debugf("| req %s", metric)
 
 	switch metric.MType {
 	case "gauge":
@@ -223,10 +223,12 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		val := float64(metricGaugeValue)
+
 		metricResponse = model.Metric{
 			ID:    metric.ID,
 			MType: metric.MType,
-			Value: float64(metricGaugeValue),
+			Value: &val,
 		}
 
 	case "counter":
@@ -242,10 +244,12 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		val := int64(metricCounterValue)
+
 		metricResponse = model.Metric{
 			ID:    metric.ID,
 			MType: metric.MType,
-			Delta: int64(metricCounterValue),
+			Delta: &val,
 		}
 
 	default:
