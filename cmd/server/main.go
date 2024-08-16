@@ -2,10 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 
@@ -20,7 +18,7 @@ import (
 const (
 	defHost            string = "localhost:8080"
 	defStoreInterval   int64  = 300
-	defFileStoragePath string = "/"
+	defFileStoragePath string = "backup.json"
 	defRestore         bool   = true
 )
 
@@ -96,7 +94,6 @@ func main() {
 	}
 
 	opt := initOptions(serverLogger)
-	srv := new(server.Server)
 	db := storage.NewMemStorage()
 	serv := service.NewMetricService(db)
 
@@ -105,9 +102,6 @@ func main() {
 		log.Fatalf("handler construction error: %v", err)
 	}
 
-	if err := srv.Run(opt.A, handler.InitChiRoutes()); err != nil {
-		if !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("error occured while running http server: %v", err)
-		}
-	}
+	srv := new(server.Server)
+	srv.Run(opt.A, opt.I, opt.F, opt.R, handler.InitChiRoutes(), serv, serverLogger)
 }
