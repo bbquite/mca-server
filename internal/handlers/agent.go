@@ -177,7 +177,7 @@ func MetricsURIRequest(services *service.MetricService, host string) error {
 		Timeout: time.Second * 1,
 	}
 
-	gauge, err := services.GetAllGaugeItems()
+	gauge, err := services.GetStringGaugeItems()
 	if err != nil {
 		return fmt.Errorf("gauge metrics collection error: %v", err)
 	}
@@ -203,9 +203,9 @@ func MetricsURIRequest(services *service.MetricService, host string) error {
 		}
 	}
 
-	counter, err := services.GetAllCounterItems()
+	counter, err := services.GetStringCounterItems()
 	if err != nil {
-		return fmt.Errorf("counter metrics collection error: %v", err)
+		return fmt.Errorf("counter metrics collecting error: %v", err)
 	}
 	for key, value := range counter {
 		url = fmt.Sprintf("http://%s/update/%s/%s/%s", host, "counter", key, value)
@@ -237,7 +237,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 	url := fmt.Sprintf("http://%s/update/", host)
 	client := http.Client{}
 
-	counter, err := services.GetAllCounterItems()
+	counter, err := services.GetStringCounterItems()
 	logger.Infof("sending counter metrics")
 	if err != nil {
 		return fmt.Errorf("counter metrics sending error: %v", err)
@@ -286,7 +286,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		}
 	}
 
-	gauge, err := services.GetAllGaugeItems()
+	gauge, err := services.GetStringGaugeItems()
 	logger.Infof("sending gauge metrics")
 	if err != nil {
 		return fmt.Errorf("gauge metrics sending error: %v", err)

@@ -29,8 +29,8 @@ type MemStorageRepo interface {
 	GetGaugeItems() (map[string]model.Gauge, bool)
 	GetCounterItems() (map[string]model.Counter, bool)
 
-	GetAllGaugeItems() (map[string]string, bool)
-	GetAllCounterItems() (map[string]string, bool)
+	GetStringGaugeItems() (map[string]string, bool)
+	GetStringCounterItems() (map[string]string, bool)
 }
 
 type MetricService struct {
@@ -83,16 +83,16 @@ func (h *MetricService) GetCounterItems() (map[string]model.Counter, error) {
 	return map[string]model.Counter{}, ErrorGettingMetrics
 }
 
-func (h *MetricService) GetAllGaugeItems() (map[string]string, error) {
-	result, err := h.store.GetAllGaugeItems()
+func (h *MetricService) GetStringGaugeItems() (map[string]string, error) {
+	result, err := h.store.GetStringGaugeItems()
 	if !err {
 		return map[string]string{}, ErrorGettingMetrics
 	}
 	return result, nil
 }
 
-func (h *MetricService) GetAllCounterItems() (map[string]string, error) {
-	result, err := h.store.GetAllCounterItems()
+func (h *MetricService) GetStringCounterItems() (map[string]string, error) {
+	result, err := h.store.GetStringCounterItems()
 	if !err {
 		return map[string]string{}, ErrorGettingMetrics
 	}
@@ -196,8 +196,5 @@ func (h *MetricService) LoadFromFile(filePath string) error {
 	if err := h.ImportFromJSON(data); err != nil {
 		return err
 	}
-	// t, _ := h.GetAllCounterItems()
-	// tt, _ := h.GetAllGaugeItems()
-	// log.Print(t, tt)
 	return nil
 }

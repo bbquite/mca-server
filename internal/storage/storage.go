@@ -73,7 +73,7 @@ func (storage *MemStorage) GetCounterItems() (map[string]model.Counter, bool) {
 	return result, true
 }
 
-func (storage *MemStorage) GetAllGaugeItems() (map[string]string, bool) {
+func (storage *MemStorage) GetStringGaugeItems() (map[string]string, bool) {
 	storage.mx.RLock()
 	defer storage.mx.RUnlock()
 
@@ -84,7 +84,7 @@ func (storage *MemStorage) GetAllGaugeItems() (map[string]string, bool) {
 	return res, true
 }
 
-func (storage *MemStorage) GetAllCounterItems() (map[string]string, bool) {
+func (storage *MemStorage) GetStringCounterItems() (map[string]string, bool) {
 	storage.mx.RLock()
 	defer storage.mx.RUnlock()
 

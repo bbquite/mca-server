@@ -157,29 +157,20 @@ func (h *Handler) updateMetricURI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-type", "text/html; charset=UTF-8")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 
-	gauge, err := h.services.GetAllGaugeItems()
+	data, err := h.services.ExportToJSON()
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		h.logger.Error(err)
-		return
 	}
 
-	counter, err := h.services.GetAllCounterItems()
-	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
+	var tmplContext map[string]interface{}
+	if err := json.Unmarshal(data, &tmplContext); err != nil {
 		h.logger.Error(err)
-		return
 	}
 
-	data := map[string]map[string]map[string]string{
-		"metrics": {
-			"counter": counter,
-			"gauge":   gauge,
-		},
-	}
-	h.indexTemplate.Execute(w, data)
+	h.indexTemplate.Execute(w, tmplContext)
 }
 
 func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
