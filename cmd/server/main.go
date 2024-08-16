@@ -73,7 +73,11 @@ func initOptions(logger *zap.SugaredLogger) *Options {
 	}
 
 	if envRESTORE, ok := os.LookupEnv("RESTORE"); ok {
-		opt.F = envRESTORE
+		boolValue, err := strconv.ParseBool(envRESTORE)
+		if err != nil {
+			flag.BoolVar(&opt.R, "i", defRestore, "STORE_INTERVAL")
+		}
+		opt.R = boolValue
 	} else {
 		flag.BoolVar(&opt.R, "r", defRestore, "RESTORE")
 	}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 
 	"github.com/bbquite/mca-server/internal/model"
 )
@@ -26,6 +25,9 @@ type MemStorageRepo interface {
 
 	GetGaugeItem(key string) (model.Gauge, bool)
 	GetCounterItem(key string) (model.Counter, bool)
+
+	GetGaugeItems() (map[string]model.Gauge, bool)
+	GetCounterItems() (map[string]model.Counter, bool)
 
 	GetAllGaugeItems() (map[string]string, bool)
 	GetAllCounterItems() (map[string]string, bool)
@@ -67,6 +69,20 @@ func (h *MetricService) GetCounterItem(key string) (model.Counter, error) {
 	return 0, ErrorCounterNotFound
 }
 
+func (h *MetricService) GetGaugeItems() (map[string]model.Gauge, error) {
+	if result, ok := h.store.GetGaugeItems(); ok {
+		return result, nil
+	}
+	return map[string]model.Gauge{}, ErrorGettingMetrics
+}
+
+func (h *MetricService) GetCounterItems() (map[string]model.Counter, error) {
+	if result, ok := h.store.GetCounterItems(); ok {
+		return result, nil
+	}
+	return map[string]model.Counter{}, ErrorGettingMetrics
+}
+
 func (h *MetricService) GetAllGaugeItems() (map[string]string, error) {
 	result, err := h.store.GetAllGaugeItems()
 	if !err {
@@ -83,25 +99,21 @@ func (h *MetricService) GetAllCounterItems() (map[string]string, error) {
 	return result, nil
 }
 
-type metricsOutput struct {
+type metricsBackup struct {
 	Metrics []model.Metric `json:"metrics"`
 }
 
 func (h *MetricService) ExportToJSON() ([]byte, error) {
 
-	var metricOut metricsOutput
+	var metricOut metricsBackup
 
-	counter, err := h.GetAllCounterItems()
+	counter, err := h.GetCounterItems()
 	if err != nil {
 		return nil, err
 	}
 
 	for key, value := range counter {
-		metricValue, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("parse int err: %v", err)
-		}
-
+		metricValue := int64(value)
 		metric := model.Metric{
 			ID:    key,
 			MType: "counter",
@@ -112,18 +124,14 @@ func (h *MetricService) ExportToJSON() ([]byte, error) {
 
 	}
 
-	gauge, err := h.GetAllGaugeItems()
+	gauge, err := h.GetGaugeItems()
 	if err != nil {
 		return nil, err
 	}
 
 	for key, value := range gauge {
 
-		metricValue, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return nil, fmt.Errorf("parse float err: %v", err)
-		}
-
+		metricValue := float64(value)
 		metric := model.Metric{
 			ID:    key,
 			MType: "gauge",
@@ -142,15 +150,12 @@ func (h *MetricService) ExportToJSON() ([]byte, error) {
 }
 
 func (h *MetricService) ImportFromJSON(data []byte) error {
-	log.Printf("%s", data)
-	var metricStruct metricsOutput
+	var metricStruct metricsBackup
 
 	err := json.Unmarshal(data, &metricStruct)
 	if err != nil {
 		return err
 	}
-
-	log.Print(metricStruct)
 
 	for _, element := range metricStruct.Metrics {
 		switch element.MType {
@@ -191,5 +196,8 @@ func (h *MetricService) LoadFromFile(filePath string) error {
 	if err := h.ImportFromJSON(data); err != nil {
 		return err
 	}
+	// t, _ := h.GetAllCounterItems()
+	// tt, _ := h.GetAllGaugeItems()
+	// log.Print(t, tt)
 	return nil
 }
