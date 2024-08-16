@@ -4,18 +4,17 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 )
 
-var compressContentArray = []string{
-	"application/javascript",
-	"application/json",
-	"text/css",
-	"text/html",
-	"text/plain",
-	"text/xml",
-}
+// var compressContentArray = []string{
+// 	"application/javascript",
+// 	"application/json",
+// 	"text/css",
+// 	"text/html",
+// 	"text/plain",
+// 	"text/xml",
+// }
 
 type gzipWriter struct {
 	http.ResponseWriter
@@ -39,11 +38,11 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		contentType := r.Header.Get("Content-Type")
-		if !slices.Contains(compressContentArray, contentType) {
-			next.ServeHTTP(w, r)
-			return
-		}
+		// contentType := r.Header.Get("Content-Type")
+		// if !slices.Contains(compressContentArray, contentType) {
+		// 	next.ServeHTTP(w, r)
+		// 	return
+		// }
 
 		// создаём gzip.Writer поверх текущего w
 		gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
