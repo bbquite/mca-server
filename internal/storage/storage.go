@@ -59,6 +59,17 @@ func (storage *MemStorage) GetCounterItem(key string) (model.Counter, bool) {
 	return 0, false
 }
 
+func (storage *MemStorage) ResetCounterItem(key string) bool {
+	storage.mx.RLock()
+	defer storage.mx.RUnlock()
+
+	if _, ok := storage.CounterItems[key]; ok {
+		storage.CounterItems[key] = model.Counter(0)
+		return true
+	}
+	return false
+}
+
 func (storage *MemStorage) GetGaugeItems() (map[string]model.Gauge, bool) {
 	storage.mx.RLock()
 	defer storage.mx.RUnlock()

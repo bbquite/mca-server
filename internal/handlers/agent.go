@@ -269,6 +269,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		}
 
 		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Content-Encoding", "gzip")
 
 		logger.Debugf("TRY %s %s", url, request.Body)
 
@@ -284,6 +285,11 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		if response.StatusCode != 200 {
 			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
 		}
+	}
+
+	err = services.ResetCounterItem("PollCount")
+	if err != nil {
+		logger.Errorf("PollCount reset error")
 	}
 
 	gauge, err := services.GetStringGaugeItems()
@@ -320,6 +326,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		}
 
 		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Content-Encoding", "gzip")
 
 		logger.Debugf("TRY %s %s", url, request.Body)
 

@@ -9,7 +9,7 @@
     <ul>
         {{ range .metrics}}
         <li>
-            <i>({{ .type }})</i> / <b>{{ .id }}</b><span>: {{ .value }}</span>
+            <i>({{ .type }})</i> / <b>{{ .id }}</b><span>: {{ .value }}{{ .delta }}</span>
         </li>
         {{ end }}
     </ul>

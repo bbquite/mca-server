@@ -25,6 +25,7 @@ type MemStorageRepo interface {
 
 	GetGaugeItem(key string) (model.Gauge, bool)
 	GetCounterItem(key string) (model.Counter, bool)
+	ResetCounterItem(key string) bool
 
 	GetGaugeItems() (map[string]model.Gauge, bool)
 	GetCounterItems() (map[string]model.Counter, bool)
@@ -67,6 +68,13 @@ func (h *MetricService) GetCounterItem(key string) (model.Counter, error) {
 		return counter, nil
 	}
 	return 0, ErrorCounterNotFound
+}
+
+func (h *MetricService) ResetCounterItem(key string) error {
+	if ok := h.store.ResetCounterItem(key); ok {
+		return nil
+	}
+	return ErrorCounterNotFound
 }
 
 func (h *MetricService) GetGaugeItems() (map[string]model.Gauge, error) {

@@ -37,16 +37,18 @@ func (s *Server) Run(host string, storeInterval int64, filePath string, restore 
 		}
 	}()
 
-	go func() {
-		for {
-			time.Sleep(time.Duration(storeInterval) * time.Second)
-			logger.Debugf("Export storage to %s", filePath)
-			err := service.SaveToFile(filePath)
-			if err != nil {
-				logger.Errorf("error occured while export storage: %v", err)
+	if storeInterval > 0 {
+		go func() {
+			for {
+				time.Sleep(time.Duration(storeInterval) * time.Second)
+				logger.Debugf("Export storage to %s", filePath)
+				err := service.SaveToFile(filePath)
+				if err != nil {
+					logger.Errorf("error occured while export storage: %v", err)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	if restore {
 		logger.Debugf("Import storage from %s", filePath)
