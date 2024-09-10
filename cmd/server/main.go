@@ -92,14 +92,18 @@ func initOptions(logger *zap.SugaredLogger) *Options {
 
 func main() {
 
+	var syncSaving = false
 	serverLogger, err := initLogger()
 	if err != nil {
 		log.Fatalf("server logger init error: %v", err)
 	}
 
 	opt := initOptions(serverLogger)
+	if opt.I == 0 {
+		syncSaving = true
+	}
 	db := storage.NewMemStorage()
-	serv := service.NewMetricService(db)
+	serv := service.NewMetricService(db, syncSaving, opt.F)
 
 	handler, err := handlers.NewHandler(serv, serverLogger)
 	if err != nil {

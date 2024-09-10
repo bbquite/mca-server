@@ -35,15 +35,24 @@ type MemStorageRepo interface {
 }
 
 type MetricService struct {
-	store MemStorageRepo
+	store    MemStorageRepo
+	syncSave bool
+	filePath string
 }
 
-func NewMetricService(store MemStorageRepo) *MetricService {
-	return &MetricService{store: store}
+func NewMetricService(store MemStorageRepo, syncSave bool, filePath string) *MetricService {
+	return &MetricService{
+		store:    store,
+		syncSave: syncSave,
+		filePath: filePath,
+	}
 }
 
 func (h *MetricService) AddGaugeItem(key string, value model.Gauge) (model.Gauge, error) {
 	if ok := h.store.AddGaugeItem(key, value); ok {
+		if h.syncSave {
+			h.SaveToFile(h.filePath)
+		}
 		return model.Gauge(value), nil
 	}
 	return 0, ErrorAddingGauge
@@ -51,6 +60,9 @@ func (h *MetricService) AddGaugeItem(key string, value model.Gauge) (model.Gauge
 
 func (h *MetricService) AddCounterItem(key string, value model.Counter) (model.Counter, error) {
 	if ok := h.store.AddCounterItem(key, value); ok {
+		if h.syncSave {
+			h.SaveToFile(h.filePath)
+		}
 		return model.Counter(value), nil
 	}
 	return 0, ErrorAddingCounter

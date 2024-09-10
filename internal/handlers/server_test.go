@@ -64,7 +64,7 @@ func Test_apiHandler(t *testing.T) {
 	defer logger.Sync()
 
 	db := storage.NewMemStorage()
-	serv := service.NewMetricService(db)
+	serv := service.NewMetricService(db, false, "")
 
 	handler, err := NewHandler(serv, sugar)
 	if err != nil {

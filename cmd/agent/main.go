@@ -75,7 +75,7 @@ func initOptions() *Options {
 
 func agentRun(opt *Options, logger *zap.SugaredLogger) error {
 	db := storage.NewMemStorage()
-	agentServices := service.NewMetricService(db)
+	agentServices := service.NewMetricService(db, false, "")
 	memStat := new(runtime.MemStats)
 
 	pollTicker := time.NewTicker(time.Duration(opt.P) * time.Second)
