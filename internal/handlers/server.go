@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -78,8 +77,6 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	var metric model.Metric
 	var buf bytes.Buffer
 
-	log.Print("AAAAAAAAAAAAA")
-
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -135,6 +132,7 @@ func (h *Handler) updateMetricURI(w http.ResponseWriter, r *http.Request) {
 	mValue := chi.URLParam(r, "m_value")
 
 	w.Header().Set("Content-type", "text/plain")
+	w.Header().Set("Content-Encoding", "gzip")
 
 	switch mType {
 	case "gauge":
@@ -175,7 +173,7 @@ func (h *Handler) updateMetricURI(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-
+	w.Header().Set("Content-Encoding", "gzip")
 	data, err := h.services.ExportToJSON()
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
