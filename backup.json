@@ -1,1 +1,1 @@
-{"metrics":null}
+{"metrics":[{"id":"PollCount","type":"counter","delta":10}]}

@@ -11,6 +11,7 @@ import (
 	"github.com/bbquite/mca-server/internal/server"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
@@ -20,6 +21,7 @@ const (
 	defStoreInterval   int64  = 300
 	defFileStoragePath string = "backup.json"
 	defRestore         bool   = true
+	defDatabase        string = ""
 )
 
 type Options struct {
@@ -27,6 +29,7 @@ type Options struct {
 	I int64  `json:"STORE_INTERVAL"`
 	F string `json:"FILE_STORAGE_PATH"`
 	R bool   `json:"RESTORE"`
+	D string `json:"DATABASE_DSN"`
 }
 
 func initLogger() (*zap.SugaredLogger, error) {
@@ -52,7 +55,6 @@ func initOptions(logger *zap.SugaredLogger) *Options {
 		opt.A = envHOST
 	} else {
 		flag.StringVar(&opt.A, "a", defHost, "HOST")
-
 	}
 
 	if envSTOREINTERVAL, ok := os.LookupEnv("STORE_INTERVAL"); ok {
@@ -82,6 +84,12 @@ func initOptions(logger *zap.SugaredLogger) *Options {
 		flag.BoolVar(&opt.R, "r", defRestore, "RESTORE")
 	}
 
+	if envDATABASE, ok := os.LookupEnv("DATABASE_DSN"); ok {
+		opt.D = envDATABASE
+	} else {
+		flag.StringVar(&opt.D, "d", defDatabase, "DATABASE_DSN")
+	}
+
 	flag.Parse()
 
 	jsonOptions, _ := json.Marshal(opt)
@@ -95,13 +103,21 @@ func main() {
 	var syncSaving = false
 	serverLogger, err := initLogger()
 	if err != nil {
-		log.Fatalf("server logger init error: %v", err)
+		serverLogger.Fatalf("server logger init error: %v", err)
 	}
 
 	opt := initOptions(serverLogger)
 	if opt.I == 0 {
 		syncSaving = true
 	}
+
+	// просто тестил следующий инкремент
+	// dbPG, err := sql.Open("pgx", opt.D)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer dbPG.Close()
+
 	db := storage.NewMemStorage()
 	serv := service.NewMetricService(db, syncSaving, opt.F)
 
