@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -77,6 +78,8 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	var metric model.Metric
 	var buf bytes.Buffer
 
+	log.Print("AAAAAAAAAAAAA")
+
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -120,6 +123,7 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Encoding", "gzip")
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
 	h.logger.Debugf("| resp %s", resp)

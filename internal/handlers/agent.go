@@ -269,7 +269,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		}
 
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Content-Encoding", "gzip")
+		request.Header.Set("Accept-Encoding", "gzip")
 
 		logger.Debugf("TRY %s %s", url, request.Body)
 
@@ -326,7 +326,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		}
 
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Content-Encoding", "gzip")
+		request.Header.Set("Accept-Encoding", "gzip")
 
 		logger.Debugf("TRY %s %s", url, request.Body)
 
