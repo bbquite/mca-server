@@ -46,7 +46,7 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 
 	chiRouter.Route("/", func(r chi.Router) {
 		r.Get("/", h.renderMetricsPage)
-		r.Get("/ping/", h.databasePing)
+		r.Get("/ping", h.databasePing)
 		r.Route("/value/", func(r chi.Router) {
 			r.Post("/", h.valueMetricJSON)
 			r.Get("/{m_type}/{m_name}", h.valueMetricURI)
@@ -61,11 +61,13 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 }
 
 func (h *Handler) databasePing(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-type", "text/plain")
 	err := h.services.PingDatabase()
 	if err != nil {
 		h.logger.Debug(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
