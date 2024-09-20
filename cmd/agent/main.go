@@ -68,7 +68,7 @@ func initOptions() *Options {
 	flag.Parse()
 
 	jsonOptions, _ := json.Marshal(opt)
-	log.Printf("Current options: %s", jsonOptions)
+	log.Printf("Current options 123: %s", jsonOptions)
 
 	return opt
 }
