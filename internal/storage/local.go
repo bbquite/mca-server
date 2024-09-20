@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -18,6 +19,10 @@ func NewMemStorage() *MemStorage {
 		GaugeItems:   make(map[string]model.Gauge),
 		CounterItems: make(map[string]model.Counter),
 	}
+}
+
+func (storage *MemStorage) Ping() error {
+	return errors.New("its im-memory store")
 }
 
 func (storage *MemStorage) AddGaugeItem(key string, value model.Gauge) bool {

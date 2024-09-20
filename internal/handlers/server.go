@@ -61,14 +61,11 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 }
 
 func (h *Handler) databasePing(w http.ResponseWriter, r *http.Request) {
-	h.logger.Info("DB PING")
-
-	// ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	// defer cancel()
-	// if err := h.db.PingContext(ctx); err != nil {
-	// 	h.logger.Debug(err)
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// }
+	err := h.services.PingDatabase()
+	if err != nil {
+		h.logger.Debug(err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 	w.WriteHeader(http.StatusOK)
 }
 

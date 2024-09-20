@@ -32,6 +32,8 @@ type MemStorageRepo interface {
 
 	GetStringGaugeItems() (map[string]string, bool)
 	GetStringCounterItems() (map[string]string, bool)
+
+	Ping() error
 }
 
 type MetricService struct {
@@ -46,6 +48,14 @@ func NewMetricService(store MemStorageRepo, syncSave bool, filePath string) *Met
 		syncSave: syncSave,
 		filePath: filePath,
 	}
+}
+
+func (s *MetricService) PingDatabase() error {
+	err := s.store.Ping()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *MetricService) AddGaugeItem(key string, value model.Gauge) (model.Gauge, error) {

@@ -1,16 +1,21 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/bbquite/mca-server/internal/handlers"
-	"github.com/bbquite/mca-server/internal/server"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
+	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
@@ -29,6 +34,9 @@ type serverOptions struct {
 	FilrStoragePath string `json:"FILE_STORAGE_PATH"`
 	Restore         bool   `json:"RESTORE"`
 	DatabaseDSN     string `json:"DATABASE_DSN"`
+
+	IsDatabaseUsage bool `json:"DBUsage"`
+	IsSyncSaving    bool `json:"SyncSaving"`
 }
 
 func initServerOptions(logger *zap.SugaredLogger) *serverOptions {
@@ -80,15 +88,90 @@ func initServerOptions(logger *zap.SugaredLogger) *serverOptions {
 
 	flag.Parse()
 
+	opt.IsDatabaseUsage = false
+	if opt.DatabaseDSN != "" {
+		opt.IsDatabaseUsage = true
+	}
+
+	opt.IsSyncSaving = false
+	if opt.StoreInterval == 0 && !opt.IsDatabaseUsage {
+		opt.IsSyncSaving = true
+	}
+
 	jsonOptions, _ := json.Marshal(opt)
 	logger.Infof("Server run with options: %s", jsonOptions)
 
 	return opt
 }
 
+type server struct {
+	httpServer *http.Server
+}
+
+func (s *server) runHTTPSever(host string, storeInterval int64, filePath string, restore bool, mux *chi.Mux, service *service.MetricService, logger *zap.SugaredLogger) error {
+
+	s.httpServer = &http.Server{
+		Addr:           host,
+		Handler:        mux,
+		MaxHeaderBytes: 1 << 20, // 1 MB
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+	}
+
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("error occured while running http server: %v", err)
+		}
+	}()
+
+	if storeInterval > 0 {
+		go func() {
+			for {
+				time.Sleep(time.Duration(storeInterval) * time.Second)
+				logger.Debugf("Export storage to %s", filePath)
+				err := service.SaveToFile(filePath)
+				if err != nil {
+					logger.Errorf("error occured while export storage: %v", err)
+				}
+			}
+		}()
+	}
+
+	if restore {
+		logger.Debugf("Import storage from %s", filePath)
+		err := service.LoadFromFile(filePath)
+		if err != nil {
+			logger.Errorf("error occured while import storage: %v", err)
+		}
+	}
+
+	sig := <-signalCh
+	logger.Info("Received signal: %v\n", sig)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		log.Fatalf("Server shutdown failed: %v\n", err)
+	}
+
+	logger.Debugf("Export storage to %s", filePath)
+	err := service.SaveToFile(filePath)
+	if err != nil {
+		logger.Errorf("error occured while export storage: %v", err)
+	}
+
+	logger.Info("Server shutdown gracefully")
+
+	return nil
+}
+
 func RunServer() {
 
-	// ctx := context.Background()
+	ctx := context.Background()
 
 	serverLogger, err := InitLogger()
 	if err != nil {
@@ -96,20 +179,25 @@ func RunServer() {
 	}
 
 	opt := initServerOptions(serverLogger)
+	var serv *service.MetricService
 
-	var syncSaving = false
-	if opt.StoreInterval == 0 {
-		syncSaving = true
+	if opt.IsDatabaseUsage {
+		storageInstance, err := storage.NewDBStorage(ctx, opt.DatabaseDSN)
+		if err != nil {
+			log.Fatalf("database connection error: %v", err)
+		}
+		defer storageInstance.DB.Close()
+		serv = service.NewMetricService(storageInstance, false, "")
+	} else {
+		storageInstance := storage.NewMemStorage()
+		serv = service.NewMetricService(storageInstance, opt.IsSyncSaving, opt.FilrStoragePath)
 	}
-
-	db := storage.NewMemStorage()
-	serv := service.NewMetricService(db, syncSaving, opt.FilrStoragePath)
 
 	handler, err := handlers.NewHandler(serv, serverLogger)
 	if err != nil {
 		log.Fatalf("handler construction error: %v", err)
 	}
 
-	srv := new(server.Server)
-	srv.Run(opt.Host, opt.StoreInterval, opt.FilrStoragePath, opt.Restore, handler.InitChiRoutes(), serv, serverLogger)
+	srv := new(server)
+	srv.runHTTPSever(opt.Host, opt.StoreInterval, opt.FilrStoragePath, opt.Restore, handler.InitChiRoutes(), serv, serverLogger)
 }
