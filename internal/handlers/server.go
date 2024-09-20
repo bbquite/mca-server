@@ -1,16 +1,19 @@
 package handlers
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/json"
 	"errors"
+	"html/template"
+	"net/http"
+	"strconv"
+
+	"github.com/bbquite/mca-server/internal/middleware"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"html/template"
-	"log"
-	"net/http"
-	"strconv"
+	"go.uber.org/zap"
 )
 
 //go:embed html/index.gohtml
@@ -19,45 +22,117 @@ var htmlTemplateEmbed string
 type Handler struct {
 	services      *service.MetricService
 	indexTemplate *template.Template
+	logger        *zap.SugaredLogger
 }
 
-func NewHandler(services *service.MetricService) (*Handler, error) {
+func NewHandler(services *service.MetricService, logger *zap.SugaredLogger) (*Handler, error) {
 	tml, err := template.New("indexTemplate").Parse(htmlTemplateEmbed)
 	if err != nil {
 		return &Handler{}, err
 	}
+
 	return &Handler{
 		services:      services,
 		indexTemplate: tml,
+		logger:        logger,
 	}, nil
 }
 
-// InitRoutes Оригинальньный роутер
-func (h *Handler) InitRoutes() *http.ServeMux {
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /update/{m_type}/{m_name}/{m_value}", h.addMetricByName)
-	return mux
-}
-
-// InitChiRoutes Роутер с chi
 func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
-	chiRouter.Use(middleware.Logger)
+
+	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
+	chiRouter.Use(middleware.GzipMiddleware)
+
 	chiRouter.Route("/", func(r chi.Router) {
-		r.Get("/", h.getAllMetrics)
-		r.Get("/value/{m_type}/{m_name}", h.getMetricByName)
-		r.Post("/update/{m_type}/{m_name}/{m_value}", h.addMetricByName)
+		r.Get("/", h.renderMetricsPage)
+		r.Get("/ping/", h.databasePing)
+		r.Route("/value/", func(r chi.Router) {
+			r.Post("/", h.valueMetricJSON)
+			r.Get("/{m_type}/{m_name}", h.valueMetricURI)
+		})
+		r.Route("/update/", func(r chi.Router) {
+			r.Post("/", h.updateMetricJSON)
+			r.Post("/{m_type}/{m_name}/{m_value}", h.updateMetricURI)
+		})
 	})
 
 	return chiRouter
 }
 
-func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) databasePing(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("DB PING")
+
+	// ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	// defer cancel()
+	// if err := h.db.PingContext(ctx); err != nil {
+	// 	h.logger.Debug(err)
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// }
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
+
+	var metric model.Metric
+	var buf bytes.Buffer
+
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	h.logger.Debugf("| req %s", buf.Bytes())
+
+	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		h.logger.Info(err)
+		return
+	}
+
+	switch metric.MType {
+	case "gauge":
+		_, err = h.services.AddGaugeItem(metric.ID, model.Gauge(*metric.Value))
+		if err != nil {
+			http.Error(w, "", http.StatusInternalServerError)
+			h.logger.Error(err)
+			return
+		}
+
+	case "counter":
+		_, err = h.services.AddCounterItem(metric.ID, model.Counter(*metric.Delta))
+		if err != nil {
+			http.Error(w, "", http.StatusInternalServerError)
+			h.logger.Error(err)
+			return
+		}
+
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	resp, err := json.Marshal(metric)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.logger.Error(err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Encoding", "gzip")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
+	h.logger.Debugf("| resp %s", resp)
+}
+
+func (h *Handler) updateMetricURI(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "m_type")
 	mName := chi.URLParam(r, "m_name")
 	mValue := chi.URLParam(r, "m_value")
 
 	w.Header().Set("Content-type", "text/plain")
+	w.Header().Set("Content-Encoding", "gzip")
 
 	switch mType {
 	case "gauge":
@@ -69,7 +144,7 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 		_, err = h.services.AddGaugeItem(mName, model.Gauge(metricValue))
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
-			log.Printf("ERROR | caught the problem: %v", err)
+			h.logger.Error(err)
 			return
 		}
 
@@ -85,7 +160,7 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 		_, err = h.services.AddCounterItem(mName, model.Counter(metricValue))
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
-			log.Printf("ERROR | caught the problem: %v", err)
+			h.logger.Error(err)
 			return
 		}
 
@@ -96,33 +171,107 @@ func (h *Handler) addMetricByName(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) getAllMetrics(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-type", "text/html; charset=UTF-8")
-
-	gauge, err := h.services.GetAllGaugeItems()
+func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.Header().Set("Content-Encoding", "gzip")
+	data, err := h.services.ExportToJSON()
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
-		log.Printf("ERROR | caught the problem: %v", err)
-		return
+		h.logger.Error(err)
 	}
 
-	counter, err := h.services.GetAllCounterItems()
-	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-		log.Printf("ERROR | caught the problem: %v", err)
-		return
+	var tmplContext map[string]interface{}
+	if err := json.Unmarshal(data, &tmplContext); err != nil {
+		h.logger.Error(err)
 	}
 
-	data := map[string]map[string]map[string]string{
-		"metrics": {
-			"counter": counter,
-			"gauge":   gauge,
-		},
-	}
-	h.indexTemplate.Execute(w, data)
+	h.indexTemplate.Execute(w, tmplContext)
 }
 
-func (h *Handler) getMetricByName(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
+
+	var metric model.Metric
+	var metricResponse model.Metric
+
+	var metricGaugeValue model.Gauge
+	var metricCounterValue model.Counter
+
+	var buf bytes.Buffer
+
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	h.logger.Debugf("| req %s", buf.Bytes())
+
+	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	switch metric.MType {
+	case "gauge":
+		metricGaugeValue, err = h.services.GetGaugeItem(metric.ID)
+		if err != nil {
+			if !errors.Is(err, service.ErrorGaugeNotFound) {
+				http.Error(w, "", http.StatusInternalServerError)
+				h.logger.Error(err)
+				return
+			} else {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+		}
+
+		val := float64(metricGaugeValue)
+
+		metricResponse = model.Metric{
+			ID:    metric.ID,
+			MType: metric.MType,
+			Value: &val,
+		}
+
+	case "counter":
+		metricCounterValue, err = h.services.GetCounterItem(metric.ID)
+		if err != nil {
+			if !errors.Is(err, service.ErrorCounterNotFound) {
+				http.Error(w, "", http.StatusInternalServerError)
+				h.logger.Error(err)
+				return
+			} else {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+		}
+
+		val := int64(metricCounterValue)
+
+		metricResponse = model.Metric{
+			ID:    metric.ID,
+			MType: metric.MType,
+			Delta: &val,
+		}
+
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	resp, err := json.Marshal(metricResponse)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.logger.Error(err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
+	h.logger.Debugf("| resp %s", resp)
+}
+
+func (h *Handler) valueMetricURI(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "m_type")
 	mName := chi.URLParam(r, "m_name")
 

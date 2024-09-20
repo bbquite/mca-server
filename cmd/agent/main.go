@@ -1,28 +1,42 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
-	"github.com/bbquite/mca-server/internal/handlers"
-	"github.com/bbquite/mca-server/internal/service"
-	"github.com/bbquite/mca-server/internal/storage"
-	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/bbquite/mca-server/internal/handlers"
+	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/storage"
+	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 const (
 	defHost           string = "localhost:8080"
-	defReportInterval int    = 10
-	defPollInterval   int    = 2
+	defReportInterval int    = 10 // частота отправки метрик
+	defPollInterval   int    = 2  // частота опроса метрик
 )
 
 type Options struct {
-	a string
-	r int
-	p int
+	A string `json:"host"`
+	R int    `json:"report_interval"`
+	P int    `json:"poll_interval"`
+}
+
+func initLogger() (*zap.SugaredLogger, error) {
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		return nil, err
+	}
+	sugar := logger.Sugar()
+	defer logger.Sync()
+
+	return sugar, nil
 }
 
 func initOptions() *Options {
@@ -30,60 +44,66 @@ func initOptions() *Options {
 
 	err := godotenv.Load()
 	if err != nil {
-		log.Print("Error loading .env file")
+		log.Print(".env file not found")
 	}
 
 	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
-		opt.a = envHOST
+		opt.A = envHOST
 	} else {
-		flag.StringVar(&opt.a, "a", defHost, "server host")
+		flag.StringVar(&opt.A, "a", defHost, "server host")
 	}
 
 	if envReportInterval, ok := os.LookupEnv("REPORT_INTERVAL"); ok {
-		opt.r, _ = strconv.Atoi(envReportInterval)
+		opt.R, _ = strconv.Atoi(envReportInterval)
 	} else {
-		flag.IntVar(&opt.r, "r", defReportInterval, "reportInterval")
+		flag.IntVar(&opt.R, "r", defReportInterval, "reportInterval")
 	}
 
 	if envPollInterval, ok := os.LookupEnv("POLL_INTERVAL"); ok {
-		opt.p, _ = strconv.Atoi(envPollInterval)
+		opt.P, _ = strconv.Atoi(envPollInterval)
 	} else {
-		flag.IntVar(&opt.p, "p", defPollInterval, "pollInterval")
+		flag.IntVar(&opt.P, "p", defPollInterval, "pollInterval")
 	}
 
 	flag.Parse()
 
+	jsonOptions, _ := json.Marshal(opt)
+	log.Printf("Current options: %s", jsonOptions)
+
 	return opt
 }
 
-func agentRun(opt *Options) error {
-
-	log.Printf("INFO | Server HOST: %s", opt.a)
-
+func agentRun(opt *Options, logger *zap.SugaredLogger) error {
 	db := storage.NewMemStorage()
-	agentServices := service.NewMetricService(db)
+	agentServices := service.NewMetricService(db, false, "")
 	memStat := new(runtime.MemStats)
 
-	collectTicker := time.NewTicker(time.Duration(opt.p) * time.Second)
-	requestTicker := time.NewTicker(time.Duration(opt.p) * time.Second)
+	pollTicker := time.NewTicker(time.Duration(opt.P) * time.Second)
+	reportTicker := time.NewTicker(time.Duration(opt.R) * time.Second)
 
 	for {
 		select {
-		case <-collectTicker.C:
-			handlers.CollectStat(memStat, agentServices)
-		case <-requestTicker.C:
-			err := handlers.MakeRequestStat(agentServices, opt.a)
+		case <-pollTicker.C:
+			handlers.MetricsCollect(memStat, agentServices, logger)
+		case <-reportTicker.C:
+			//err := handlers.MetricsURIRequest(agentServices, opt.a)
+			err := handlers.MetricsJSONRequest(agentServices, opt.A, logger)
 			if err != nil {
-				log.Printf("ERROR | Falied to make request: %v", err)
+				logger.Errorf("Falied to make request: \n%v", err)
 			}
 		}
 	}
 }
 
 func main() {
+	agentLogger, err := initLogger()
+	if err != nil {
+		log.Fatalf("agent logger init error: %v", err)
+	}
+
 	opt := initOptions()
 
-	if err := agentRun(opt); err != nil {
+	if err := agentRun(opt, agentLogger); err != nil {
 		log.Fatal(err)
 	}
 }
