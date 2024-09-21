@@ -22,7 +22,7 @@ func NewMemStorage() *MemStorage {
 }
 
 func (storage *MemStorage) Ping() error {
-	return errors.New("its im-memory store")
+	return errors.New("its in-memory store")
 }
 
 func (storage *MemStorage) AddGaugeItem(key string, value model.Gauge) bool {

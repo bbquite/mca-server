@@ -9,3 +9,15 @@ type Metric struct {
 	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
+
+// CREATE TYPE metric_type AS ENUM (
+//     'GAUGE',
+//     'COUNTER'
+// );
+// create table metrics (
+// 	id serial PRIMARY KEY,
+// 	metric_type metric_type not null,
+// 	metric_name varchar(55) UNIQUE not null,
+//     delta integer,
+//     value double precision
+// );

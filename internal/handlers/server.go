@@ -214,6 +214,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 	case "gauge":
 		metricGaugeValue, err = h.services.GetGaugeItem(metric.ID)
 		if err != nil {
+			h.logger.Debug(err)
 			if !errors.Is(err, service.ErrorGaugeNotFound) {
 				http.Error(w, "", http.StatusInternalServerError)
 				h.logger.Error(err)
