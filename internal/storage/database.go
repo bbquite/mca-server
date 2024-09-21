@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bbquite/mca-server/internal/model"
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -28,6 +29,46 @@ func NewDBStorage(ctx context.Context, databaseDSN string) (*DBStorage, error) {
 	}, nil
 }
 
+func (storage *DBStorage) CheckDatabaseValid() error {
+	err := storage.Ping()
+	if err != nil {
+		return err
+	}
+
+	sqlCheckString := `SELECT id FROM metrics LIMIT 1`
+	sqlCreateString := `
+		DROP TYPE IF EXISTS metric_type;
+		CREATE TYPE metric_type AS ENUM('GAUGE','COUNTER');
+
+		create table metrics (
+			id serial PRIMARY KEY,
+			metric_type metric_type not null,
+			metric_name varchar(55) UNIQUE not null,
+			delta integer,
+			value double precision
+		);
+	`
+
+	_, err = storage.DB.ExecContext(storage.ctx, sqlCheckString)
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "42P01" { // relation does not exist
+				_, err = storage.DB.ExecContext(storage.ctx, sqlCreateString)
+				if err != nil {
+					log.Print(err)
+					return err
+				}
+			}
+		}
+		log.Print(err)
+		return err
+	}
+
+	return nil
+}
+
 func (storage *DBStorage) Ping() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -37,7 +78,7 @@ func (storage *DBStorage) Ping() error {
 	return nil
 }
 
-func (storage *DBStorage) AddMetricItem(m_type string, key string, value any) bool {
+func (storage *DBStorage) AddMetricItem(mType string, key string, value any) bool {
 	// storage.mx.Lock()
 	// defer storage.mx.Unlock()
 
@@ -89,7 +130,7 @@ func (storage *DBStorage) AddMetricItem(m_type string, key string, value any) bo
 		WHERE metric_name = $1
 	`
 
-	if m_type == "COUNTER" {
+	if mType == "COUNTER" {
 		sqlStringUpdate = `
 			UPDATE metrics
 			SET delta = delta + $2
@@ -105,7 +146,7 @@ func (storage *DBStorage) AddMetricItem(m_type string, key string, value any) bo
 	err := row.Scan(&metricID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			_, err = storage.DB.ExecContext(storage.ctx, sqlStringInsert, m_type, key, value)
+			_, err = storage.DB.ExecContext(storage.ctx, sqlStringInsert, mType, key, value)
 			if err != nil {
 				log.Print(err)
 				return false

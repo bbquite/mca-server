@@ -187,6 +187,10 @@ func RunServer() {
 			log.Fatalf("database connection error: %v", err)
 		}
 		defer storageInstance.DB.Close()
+		err = storageInstance.CheckDatabaseValid()
+		if err != nil {
+			log.Fatalf("database struct error: %v", err)
+		}
 		serv = service.NewMetricService(storageInstance, false, "")
 	} else {
 		storageInstance := storage.NewMemStorage()
