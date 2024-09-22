@@ -1,4 +1,4 @@
-package app
+package utils
 
 import "go.uber.org/zap"
 

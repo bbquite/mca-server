@@ -32,9 +32,6 @@ type MemStorageRepo interface {
 	GetGaugeItems() (map[string]model.Gauge, bool)
 	GetCounterItems() (map[string]model.Counter, bool)
 
-	GetStringGaugeItems() (map[string]string, bool)
-	GetStringCounterItems() (map[string]string, bool)
-
 	Ping() error
 }
 
@@ -117,29 +114,13 @@ func (s *MetricService) GetCounterItems() (map[string]model.Counter, error) {
 	return map[string]model.Counter{}, ErrorGettingMetrics
 }
 
-func (s *MetricService) GetStringGaugeItems() (map[string]string, error) {
-	result, err := s.store.GetStringGaugeItems()
-	if !err {
-		return map[string]string{}, ErrorGettingMetrics
-	}
-	return result, nil
-}
-
-func (s *MetricService) GetStringCounterItems() (map[string]string, error) {
-	result, err := s.store.GetStringCounterItems()
-	if !err {
-		return map[string]string{}, ErrorGettingMetrics
-	}
-	return result, nil
-}
-
-func (s *MetricService) ExportToJSON() ([]byte, error) {
-
-	var metricOut model.MetricsPack
+func (s *MetricService) GetAllMetrics() (model.MetricsPack, error) {
+	var metricResult model.MetricsPack
+	var ph = metricResult
 
 	counter, err := s.GetCounterItems()
 	if err != nil {
-		return nil, err
+		return ph, err
 	}
 
 	for key, value := range counter {
@@ -150,13 +131,13 @@ func (s *MetricService) ExportToJSON() ([]byte, error) {
 			Delta: &metricValue,
 		}
 
-		metricOut.Metrics = append(metricOut.Metrics, metric)
+		metricResult.Metrics = append(metricResult.Metrics, metric)
 
 	}
 
 	gauge, err := s.GetGaugeItems()
 	if err != nil {
-		return nil, err
+		return ph, err
 	}
 
 	for key, value := range gauge {
@@ -168,10 +149,20 @@ func (s *MetricService) ExportToJSON() ([]byte, error) {
 			Value: &metricValue,
 		}
 
-		metricOut.Metrics = append(metricOut.Metrics, metric)
+		metricResult.Metrics = append(metricResult.Metrics, metric)
 	}
 
-	metricsJSON, err := json.Marshal(metricOut)
+	return metricResult, nil
+}
+
+func (s *MetricService) ExportToJSON() ([]byte, error) {
+
+	metricsPack, err := s.GetAllMetrics()
+	if err != nil {
+		return []byte{}, err
+	}
+
+	metricsJSON, err := json.Marshal(metricsPack)
 	if err != nil {
 		return nil, fmt.Errorf("err: %v", err)
 	}

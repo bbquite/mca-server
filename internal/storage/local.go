@@ -2,7 +2,6 @@ package storage
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/bbquite/mca-server/internal/model"
@@ -91,26 +90,4 @@ func (storage *MemStorage) GetCounterItems() (map[string]model.Counter, bool) {
 	defer storage.mx.RUnlock()
 	result := storage.CounterItems
 	return result, true
-}
-
-func (storage *MemStorage) GetStringGaugeItems() (map[string]string, bool) {
-	storage.mx.RLock()
-	defer storage.mx.RUnlock()
-
-	res := map[string]string{}
-	for key, value := range storage.GaugeItems {
-		res[key] = fmt.Sprintf("%.2f", value)
-	}
-	return res, true
-}
-
-func (storage *MemStorage) GetStringCounterItems() (map[string]string, bool) {
-	storage.mx.RLock()
-	defer storage.mx.RUnlock()
-
-	res := map[string]string{}
-	for key, value := range storage.CounterItems {
-		res[key] = fmt.Sprintf("%v", value)
-	}
-	return res, true
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/bbquite/mca-server/internal/handlers"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
+	"github.com/bbquite/mca-server/internal/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -173,7 +174,7 @@ func RunServer() {
 
 	ctx := context.Background()
 
-	serverLogger, err := InitLogger()
+	serverLogger, err := utils.InitLogger()
 	if err != nil {
 		serverLogger.Fatalf("server logger init error: %v", err)
 	}
