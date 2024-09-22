@@ -12,6 +12,7 @@ import (
 	"github.com/bbquite/mca-server/internal/middleware"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
@@ -73,8 +74,6 @@ func (h *Handler) databasePing(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) {
-
-	// var metric model.MetricsPack
 	var buf bytes.Buffer
 
 	_, err := buf.ReadFrom(r.Body)
@@ -83,31 +82,13 @@ func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// h.logger.Debugf("| req %s", buf.Bytes())
-
-	// if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
-	// 	http.Error(w, err.Error(), http.StatusBadRequest)
-	// 	h.logger.Info(err)
-	// 	return
-	// }
-
 	err = h.services.ImportFromJSON(buf.Bytes())
 	if err != nil {
 		h.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
-	// resp, err := json.Marshal(metric)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	h.logger.Error(err)
-	// 	return
-	// }
-	// w.Header().Set("Content-Type", "application/json")
-	// w.Header().Set("Content-Encoding", "gzip")
 	w.WriteHeader(http.StatusOK)
-	// w.Write(resp)
-	// h.logger.Debugf("| resp %s", resp)
 }
 
 func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
@@ -254,7 +235,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 		metricGaugeValue, err = h.services.GetGaugeItem(metric.ID)
 		if err != nil {
 			h.logger.Debug(err)
-			if !errors.Is(err, service.ErrorGaugeNotFound) {
+			if !errors.Is(err, storage.ErrorGaugeNotFound) {
 				http.Error(w, "", http.StatusInternalServerError)
 				h.logger.Error(err)
 				return
@@ -275,7 +256,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 	case "counter":
 		metricCounterValue, err = h.services.GetCounterItem(metric.ID)
 		if err != nil {
-			if !errors.Is(err, service.ErrorCounterNotFound) {
+			if !errors.Is(err, storage.ErrorCounterNotFound) {
 				http.Error(w, "", http.StatusInternalServerError)
 				h.logger.Error(err)
 				return
@@ -318,7 +299,7 @@ func (h *Handler) valueMetricURI(w http.ResponseWriter, r *http.Request) {
 	case "gauge":
 
 		value, err := h.services.GetGaugeItem(mName)
-		if errors.Is(err, service.ErrorGaugeNotFound) {
+		if errors.Is(err, storage.ErrorGaugeNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -334,7 +315,7 @@ func (h *Handler) valueMetricURI(w http.ResponseWriter, r *http.Request) {
 	case "counter":
 
 		value, err := h.services.GetCounterItem(mName)
-		if errors.Is(err, service.ErrorCounterNotFound) {
+		if errors.Is(err, storage.ErrorCounterNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}

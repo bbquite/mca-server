@@ -20,18 +20,14 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
-func (storage *MemStorage) Ping() error {
-	return errors.New("its in-memory store")
-}
-
-func (storage *MemStorage) AddGaugeItem(key string, value model.Gauge) bool {
+func (storage *MemStorage) AddGaugeItem(key string, value model.Gauge) error {
 	storage.mx.Lock()
 	defer storage.mx.Unlock()
 	storage.GaugeItems[key] = value
-	return true
+	return nil
 }
 
-func (storage *MemStorage) AddCounterItem(key string, value model.Counter) bool {
+func (storage *MemStorage) AddCounterItem(key string, value model.Counter) error {
 	storage.mx.Lock()
 	defer storage.mx.Unlock()
 
@@ -40,54 +36,58 @@ func (storage *MemStorage) AddCounterItem(key string, value model.Counter) bool 
 	} else {
 		storage.CounterItems[key] = value
 	}
-	return true
+	return nil
 }
 
-func (storage *MemStorage) AddMetricsPack(metrics *model.MetricsPack) bool {
-	return false
-}
-
-func (storage *MemStorage) GetGaugeItem(key string) (model.Gauge, bool) {
+func (storage *MemStorage) GetGaugeItem(key string) (model.Gauge, error) {
 	storage.mx.RLock()
 	defer storage.mx.RUnlock()
 
 	if _, ok := storage.GaugeItems[key]; ok {
-		return storage.GaugeItems[key], true
+		return storage.GaugeItems[key], nil
 	}
-	return 0, false
+	return 0, ErrorGaugeNotFound
 }
 
-func (storage *MemStorage) GetCounterItem(key string) (model.Counter, bool) {
+func (storage *MemStorage) GetCounterItem(key string) (model.Counter, error) {
 	storage.mx.RLock()
 	defer storage.mx.RUnlock()
 
 	if _, ok := storage.CounterItems[key]; ok {
-		return storage.CounterItems[key], true
+		return storage.CounterItems[key], nil
 	}
-	return 0, false
+	return 0, ErrorCounterNotFound
 }
 
-func (storage *MemStorage) ResetCounterItem(key string) bool {
+func (storage *MemStorage) GetGaugeItems() (map[string]model.Gauge, error) {
+	storage.mx.RLock()
+	defer storage.mx.RUnlock()
+	result := storage.GaugeItems
+	return result, nil
+}
+
+func (storage *MemStorage) GetCounterItems() (map[string]model.Counter, error) {
+	storage.mx.RLock()
+	defer storage.mx.RUnlock()
+	result := storage.CounterItems
+	return result, nil
+}
+
+func (storage *MemStorage) ResetCounterItem(key string) error {
 	storage.mx.RLock()
 	defer storage.mx.RUnlock()
 
 	if _, ok := storage.CounterItems[key]; ok {
 		storage.CounterItems[key] = model.Counter(0)
-		return true
+		return ErrorResetCounter
 	}
-	return false
+	return nil
 }
 
-func (storage *MemStorage) GetGaugeItems() (map[string]model.Gauge, bool) {
-	storage.mx.RLock()
-	defer storage.mx.RUnlock()
-	result := storage.GaugeItems
-	return result, true
+func (storage *MemStorage) Ping() error {
+	return errors.New("UNUSED")
 }
 
-func (storage *MemStorage) GetCounterItems() (map[string]model.Counter, bool) {
-	storage.mx.RLock()
-	defer storage.mx.RUnlock()
-	result := storage.CounterItems
-	return result, true
+func (storage *MemStorage) AddMetricsPack(metrics *model.MetricsPack) error {
+	return errors.New("UNUSED")
 }

@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -10,27 +9,18 @@ import (
 	"github.com/bbquite/mca-server/internal/model"
 )
 
-var (
-	ErrorAddingGauge   = errors.New("no gauge value added")
-	ErrorAddingCounter = errors.New("no counter value added")
-
-	ErrorGaugeNotFound   = errors.New("gauge not found")
-	ErrorCounterNotFound = errors.New("counters not found")
-	ErrorGettingMetrics  = errors.New("error getting metrics")
-)
-
 type MemStorageRepo interface {
-	AddGaugeItem(key string, value model.Gauge) bool
-	AddCounterItem(key string, value model.Counter) bool
+	AddGaugeItem(key string, value model.Gauge) error
+	AddCounterItem(key string, value model.Counter) error
 
-	AddMetricsPack(metrics *model.MetricsPack) bool
+	AddMetricsPack(metrics *model.MetricsPack) error
 
-	GetGaugeItem(key string) (model.Gauge, bool)
-	GetCounterItem(key string) (model.Counter, bool)
-	ResetCounterItem(key string) bool
+	GetGaugeItem(key string) (model.Gauge, error)
+	GetCounterItem(key string) (model.Counter, error)
+	ResetCounterItem(key string) error
 
-	GetGaugeItems() (map[string]model.Gauge, bool)
-	GetCounterItems() (map[string]model.Counter, bool)
+	GetGaugeItems() (map[string]model.Gauge, error)
+	GetCounterItems() (map[string]model.Counter, error)
 
 	Ping() error
 }
@@ -60,58 +50,78 @@ func (s *MetricService) PingDatabase() error {
 }
 
 func (s *MetricService) AddGaugeItem(key string, value model.Gauge) (model.Gauge, error) {
-	if ok := s.store.AddGaugeItem(key, value); ok {
-		if s.syncSave {
-			s.SaveToFile(s.filePath)
-		}
-		return model.Gauge(value), nil
+	err := s.store.AddGaugeItem(key, value)
+	if err != nil {
+		return 0, err
 	}
-	return 0, ErrorAddingGauge
+
+	if s.syncSave {
+		err = s.SaveToFile(s.filePath)
+		if err != nil {
+			log.Print(err)
+		}
+	}
+	return model.Gauge(value), nil
 }
 
 func (s *MetricService) AddCounterItem(key string, value model.Counter) (model.Counter, error) {
-	if ok := s.store.AddCounterItem(key, value); ok {
-		if s.syncSave {
-			s.SaveToFile(s.filePath)
-		}
-		return model.Counter(value), nil
+	err := s.store.AddCounterItem(key, value)
+	if err != nil {
+		return 0, err
 	}
-	return 0, ErrorAddingCounter
+
+	if s.syncSave {
+		err = s.SaveToFile(s.filePath)
+		if err != nil {
+			log.Print(err)
+		}
+	}
+	return model.Counter(value), nil
 }
 
 func (s *MetricService) GetGaugeItem(key string) (model.Gauge, error) {
-	if gauge, ok := s.store.GetGaugeItem(key); ok {
-		return gauge, nil
+	item, err := s.store.GetGaugeItem(key)
+	if err != nil {
+		return 0, err
 	}
-	return 0, ErrorGaugeNotFound
+
+	return item, nil
 }
 
 func (s *MetricService) GetCounterItem(key string) (model.Counter, error) {
-	if counter, ok := s.store.GetCounterItem(key); ok {
-		return counter, nil
+	item, err := s.store.GetCounterItem(key)
+	if err != nil {
+		return 0, err
 	}
-	return 0, ErrorCounterNotFound
+
+	return item, nil
 }
 
 func (s *MetricService) ResetCounterItem(key string) error {
-	if ok := s.store.ResetCounterItem(key); ok {
-		return nil
+	err := s.store.ResetCounterItem(key)
+	if err != nil {
+		return err
 	}
-	return ErrorCounterNotFound
+	return nil
 }
 
 func (s *MetricService) GetGaugeItems() (map[string]model.Gauge, error) {
-	if result, ok := s.store.GetGaugeItems(); ok {
-		return result, nil
+	items, err := s.store.GetGaugeItems()
+	if err != nil {
+		return map[string]model.Gauge{}, err
 	}
-	return map[string]model.Gauge{}, ErrorGettingMetrics
+
+	return items, nil
 }
 
 func (s *MetricService) GetCounterItems() (map[string]model.Counter, error) {
-	if result, ok := s.store.GetCounterItems(); ok {
-		return result, nil
+
+	items, err := s.store.GetCounterItems()
+	if err != nil {
+		return map[string]model.Counter{}, err
 	}
-	return map[string]model.Counter{}, ErrorGettingMetrics
+
+	return items, nil
 }
 
 func (s *MetricService) GetAllMetrics() (model.MetricsPack, error) {

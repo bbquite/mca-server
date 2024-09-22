@@ -243,8 +243,8 @@ func RunAgent() error {
 
 		case <-reportTicker.C:
 			// err := handlers.MetricsURIRequest(agentServices, cfg.Host, agentLogger)
-			err := handlers.MetricsJSONRequest(agentServices, cfg.Host, agentLogger)
-			// err := handlers.MetricsPackJSONRequest(agentServices, cfg.Host, agentLogger)
+			// err := handlers.MetricsJSONRequest(agentServices, cfg.Host, agentLogger)
+			err := handlers.MetricsPackJSONRequest(agentServices, cfg.Host, agentLogger)
 			if err != nil {
 				agentLogger.Errorf("Falied to make request: \n%v", err)
 			}

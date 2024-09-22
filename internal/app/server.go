@@ -29,10 +29,10 @@ const (
 	defDatabase        string = ""
 )
 
-type serverOptions struct {
+type serverConfig struct {
 	Host            string `json:"HOST"`
 	StoreInterval   int64  `json:"STORE_INTERVAL"`
-	FilrStoragePath string `json:"FILE_STORAGE_PATH"`
+	FileStoragePath string `json:"FILE_STORAGE_PATH"`
 	Restore         bool   `json:"RESTORE"`
 	DatabaseDSN     string `json:"DATABASE_DSN"`
 
@@ -40,8 +40,8 @@ type serverOptions struct {
 	IsSyncSaving    bool `json:"SyncSaving"`
 }
 
-func initServerOptions(logger *zap.SugaredLogger) *serverOptions {
-	opt := new(serverOptions)
+func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
+	cfg := new(serverConfig)
 
 	err := godotenv.Load()
 	if err != nil {
@@ -49,70 +49,70 @@ func initServerOptions(logger *zap.SugaredLogger) *serverOptions {
 	}
 
 	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
-		opt.Host = envHOST
+		cfg.Host = envHOST
 	} else {
-		flag.StringVar(&opt.Host, "a", defHost, "HOST")
+		flag.StringVar(&cfg.Host, "a", defHost, "HOST")
 	}
 
 	if envSTOREINTERVAL, ok := os.LookupEnv("STORE_INTERVAL"); ok {
 		storeInterval, err := strconv.ParseInt(envSTOREINTERVAL, 10, 64)
 		if err != nil {
-			flag.Int64Var(&opt.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
+			flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
 		} else {
-			opt.StoreInterval = storeInterval
+			cfg.StoreInterval = storeInterval
 		}
 	} else {
-		flag.Int64Var(&opt.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
+		flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
 	}
 
 	if envFILESTORAGEPATH, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
-		opt.FilrStoragePath = envFILESTORAGEPATH
+		cfg.FileStoragePath = envFILESTORAGEPATH
 	} else {
-		flag.StringVar(&opt.FilrStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
+		flag.StringVar(&cfg.FileStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
 	}
 
 	if envRESTORE, ok := os.LookupEnv("RESTORE"); ok {
 		boolValue, err := strconv.ParseBool(envRESTORE)
 		if err != nil {
-			flag.BoolVar(&opt.Restore, "i", defRestore, "RESTORE")
+			flag.BoolVar(&cfg.Restore, "i", defRestore, "RESTORE")
 		}
-		opt.Restore = boolValue
+		cfg.Restore = boolValue
 	} else {
-		flag.BoolVar(&opt.Restore, "r", defRestore, "RESTORE")
+		flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
 	}
 
 	if envDATABASE, ok := os.LookupEnv("DATABASE_DSN"); ok {
-		opt.DatabaseDSN = envDATABASE
+		cfg.DatabaseDSN = envDATABASE
 	} else {
-		flag.StringVar(&opt.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
+		flag.StringVar(&cfg.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
 	}
 
 	flag.Parse()
 
-	opt.IsDatabaseUsage = false
-	if opt.DatabaseDSN != "" {
-		opt.IsDatabaseUsage = true
+	cfg.IsDatabaseUsage = false
+	if cfg.DatabaseDSN != "" {
+		cfg.IsDatabaseUsage = true
 	}
 
-	opt.IsSyncSaving = false
-	if opt.StoreInterval == 0 && !opt.IsDatabaseUsage {
-		opt.IsSyncSaving = true
+	cfg.IsSyncSaving = false
+	if cfg.StoreInterval == 0 && !cfg.IsDatabaseUsage {
+		cfg.IsSyncSaving = true
 	}
 
-	jsonOptions, _ := json.Marshal(opt)
-	logger.Infof("Server run with options: %s", jsonOptions)
+	jsonConfig, _ := json.Marshal(cfg)
+	logger.Infof("Server run with config: %s", jsonConfig)
 
-	return opt
+	return cfg
 }
 
 type server struct {
 	httpServer *http.Server
 }
 
-func (s *server) runHTTPSever(host string, storeInterval int64, filePath string, restore bool, mux *chi.Mux, service *service.MetricService, logger *zap.SugaredLogger) error {
+func (s *server) runHTTPSever(cfg *serverConfig, mux *chi.Mux, service *service.MetricService, logger *zap.SugaredLogger) error {
 
 	s.httpServer = &http.Server{
-		Addr:           host,
+		Addr:           cfg.Host,
 		Handler:        mux,
 		MaxHeaderBytes: 1 << 20, // 1 MB
 		ReadTimeout:    10 * time.Second,
@@ -128,12 +128,12 @@ func (s *server) runHTTPSever(host string, storeInterval int64, filePath string,
 		}
 	}()
 
-	if storeInterval > 0 {
+	if cfg.StoreInterval > 0 {
 		go func() {
 			for {
-				time.Sleep(time.Duration(storeInterval) * time.Second)
-				logger.Debugf("Export storage to %s", filePath)
-				err := service.SaveToFile(filePath)
+				time.Sleep(time.Duration(cfg.StoreInterval) * time.Second)
+				logger.Debugf("Export storage to %s", cfg.FileStoragePath)
+				err := service.SaveToFile(cfg.FileStoragePath)
 				if err != nil {
 					logger.Errorf("error occured while export storage: %v", err)
 				}
@@ -141,9 +141,9 @@ func (s *server) runHTTPSever(host string, storeInterval int64, filePath string,
 		}()
 	}
 
-	if restore {
-		logger.Debugf("Import storage from %s", filePath)
-		err := service.LoadFromFile(filePath)
+	if cfg.Restore {
+		logger.Debugf("Import storage from %s", cfg.FileStoragePath)
+		err := service.LoadFromFile(cfg.FileStoragePath)
 		if err != nil {
 			logger.Errorf("error occured while import storage: %v", err)
 		}
@@ -159,8 +159,8 @@ func (s *server) runHTTPSever(host string, storeInterval int64, filePath string,
 		log.Fatalf("Server shutdown failed: %v\n", err)
 	}
 
-	logger.Debugf("Export storage to %s", filePath)
-	err := service.SaveToFile(filePath)
+	logger.Debugf("Export storage to %s", cfg.FileStoragePath)
+	err := service.SaveToFile(cfg.FileStoragePath)
 	if err != nil {
 		logger.Errorf("error occured while export storage: %v", err)
 	}
@@ -179,11 +179,11 @@ func RunServer() {
 		serverLogger.Fatalf("server logger init error: %v", err)
 	}
 
-	opt := initServerOptions(serverLogger)
+	cfg := initServerConfig(serverLogger)
 	var serv *service.MetricService
 
-	if opt.IsDatabaseUsage {
-		storageInstance, err := storage.NewDBStorage(ctx, opt.DatabaseDSN)
+	if cfg.IsDatabaseUsage {
+		storageInstance, err := storage.NewDBStorage(ctx, cfg.DatabaseDSN)
 		if err != nil {
 			log.Fatalf("database connection error: %v", err)
 		}
@@ -198,7 +198,7 @@ func RunServer() {
 
 	} else {
 		storageInstance := storage.NewMemStorage()
-		serv = service.NewMetricService(storageInstance, opt.IsSyncSaving, false, opt.FilrStoragePath)
+		serv = service.NewMetricService(storageInstance, cfg.IsSyncSaving, false, cfg.FileStoragePath)
 	}
 
 	handler, err := handlers.NewHandler(serv, serverLogger)
@@ -207,5 +207,5 @@ func RunServer() {
 	}
 
 	srv := new(server)
-	srv.runHTTPSever(opt.Host, opt.StoreInterval, opt.FilrStoragePath, opt.Restore, handler.InitChiRoutes(), serv, serverLogger)
+	srv.runHTTPSever(cfg, handler.InitChiRoutes(), serv, serverLogger)
 }
