@@ -57,7 +57,7 @@ func initAgentOptions(logger *zap.SugaredLogger) *agentOptions {
 	flag.Parse()
 
 	jsonOptions, _ := json.Marshal(opt)
-	logger.Info("Current options 123: %s", jsonOptions)
+	logger.Info("Current options: %s", jsonOptions)
 
 	return opt
 }
@@ -72,7 +72,7 @@ func RunAgent() error {
 	opt := initAgentOptions(agentLogger)
 
 	db := storage.NewMemStorage()
-	agentServices := service.NewMetricService(db, false, "")
+	agentServices := service.NewMetricService(db, false, false, "")
 	memStat := new(runtime.MemStats)
 
 	pollTicker := time.NewTicker(time.Duration(opt.PollInterval) * time.Second)
@@ -85,7 +85,8 @@ func RunAgent() error {
 
 		case <-reportTicker.C:
 			//err := handlers.MetricsURIRequest(agentServices, opt.host)
-			err := handlers.MetricsJSONRequest(agentServices, opt.Host, agentLogger)
+			// err := handlers.MetricsJSONRequest(agentServices, opt.Host, agentLogger)
+			err := handlers.MetricsMapJSONRequest(agentServices, opt.Host, agentLogger)
 			if err != nil {
 				agentLogger.Errorf("Falied to make request: \n%v", err)
 			}

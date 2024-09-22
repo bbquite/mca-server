@@ -23,6 +23,8 @@ type MemStorageRepo interface {
 	AddGaugeItem(key string, value model.Gauge) bool
 	AddCounterItem(key string, value model.Counter) bool
 
+	AddMetricsPack(metrics *model.MetricsPack) bool
+
 	GetGaugeItem(key string) (model.Gauge, bool)
 	GetCounterItem(key string) (model.Counter, bool)
 	ResetCounterItem(key string) bool
@@ -37,16 +39,18 @@ type MemStorageRepo interface {
 }
 
 type MetricService struct {
-	store    MemStorageRepo
-	syncSave bool
-	filePath string
+	store           MemStorageRepo
+	syncSave        bool
+	filePath        string
+	isDatabaseUsage bool
 }
 
-func NewMetricService(store MemStorageRepo, syncSave bool, filePath string) *MetricService {
+func NewMetricService(store MemStorageRepo, syncSave bool, isDatabaseUsage bool, filePath string) *MetricService {
 	return &MetricService{
-		store:    store,
-		syncSave: syncSave,
-		filePath: filePath,
+		store:           store,
+		syncSave:        syncSave,
+		filePath:        filePath,
+		isDatabaseUsage: isDatabaseUsage,
 	}
 }
 
@@ -129,13 +133,9 @@ func (s *MetricService) GetStringCounterItems() (map[string]string, error) {
 	return result, nil
 }
 
-type metricsBackup struct {
-	Metrics []model.Metric `json:"metrics"`
-}
-
 func (s *MetricService) ExportToJSON() ([]byte, error) {
 
-	var metricOut metricsBackup
+	var metricOut model.MetricsPack
 
 	counter, err := s.GetCounterItems()
 	if err != nil {
@@ -180,11 +180,16 @@ func (s *MetricService) ExportToJSON() ([]byte, error) {
 }
 
 func (s *MetricService) ImportFromJSON(data []byte) error {
-	var metricStruct metricsBackup
+	var metricStruct model.MetricsPack
 
 	err := json.Unmarshal(data, &metricStruct)
 	if err != nil {
 		return err
+	}
+
+	if s.isDatabaseUsage {
+		s.store.AddMetricsPack(&metricStruct)
+		return nil
 	}
 
 	for _, element := range metricStruct.Metrics {
@@ -202,7 +207,6 @@ func (s *MetricService) ImportFromJSON(data []byte) error {
 			}
 		}
 	}
-
 	return nil
 }
 

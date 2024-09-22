@@ -44,6 +44,10 @@ func (storage *MemStorage) AddCounterItem(key string, value model.Counter) bool 
 	return true
 }
 
+func (storage *MemStorage) AddMetricsPack(metrics *model.MetricsPack) bool {
+	return false
+}
+
 func (storage *MemStorage) GetGaugeItem(key string) (model.Gauge, bool) {
 	storage.mx.RLock()
 	defer storage.mx.RUnlock()

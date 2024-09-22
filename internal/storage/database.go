@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/bbquite/mca-server/internal/model"
@@ -95,11 +96,27 @@ func (storage *DBStorage) AddMetricItem(mType string, key string, value any) boo
 	// 	END
 	// `
 
-	// sqlString := `
-	// 	INSERT INTO metrics (metric_type, metric_name, value)
-	// 	VALUES ($1, $2, $3)
-	// 	ON CONFLICT (metric_name) DO UPDATE SET value = $3
-	// `
+	sqlString := `
+		INSERT INTO metrics (metric_type, metric_name, value)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (metric_name) DO UPDATE SET value = $3
+	`
+
+	if mType == "COUNTER" {
+		sqlString = `
+			INSERT INTO metrics (metric_type, metric_name, delta)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (metric_name) DO UPDATE SET delta = metrics.delta + $3
+		`
+	}
+
+	_, err := storage.DB.ExecContext(storage.ctx, sqlString, mType, key, value)
+	if err != nil {
+		log.Print(err)
+		return false
+	}
+
+	return true
 
 	// sqlString := `
 	// 	INSERT INTO metrics (metric_type, metric_name, value)
@@ -110,60 +127,60 @@ func (storage *DBStorage) AddMetricItem(mType string, key string, value any) boo
 	// 	)
 	// `
 
-	var metricID uint8
+	// var metricID uint8
 
-	sqlStringSelect := `
-		SELECT id 
-		FROM metrics 
-		WHERE metric_name = $1 
-		LIMIT 1
-	`
+	// sqlStringSelect := `
+	// 	SELECT id
+	// 	FROM metrics
+	// 	WHERE metric_name = $1
+	// 	LIMIT 1
+	// `
 
-	sqlStringInsert := `
-		INSERT INTO metrics (metric_type, metric_name, value)
-		VALUES ($1, $2, $3)
-	`
+	// sqlStringInsert := `
+	// 	INSERT INTO metrics (metric_type, metric_name, value)
+	// 	VALUES ($1, $2, $3)
+	// `
 
-	sqlStringUpdate := `
-		UPDATE metrics
-		SET value = $2
-		WHERE metric_name = $1
-	`
+	// sqlStringUpdate := `
+	// 	UPDATE metrics
+	// 	SET value = $2
+	// 	WHERE metric_name = $1
+	// `
 
-	if mType == "COUNTER" {
-		sqlStringUpdate = `
-			UPDATE metrics
-			SET delta = delta + $2
-			WHERE metric_name = $1
-		`
-		sqlStringInsert = `
-			INSERT INTO metrics (metric_type, metric_name, delta)
-			VALUES ($1, $2, $3)
-		`
-	}
+	// if mType == "COUNTER" {
+	// 	sqlStringUpdate = `
+	// 		UPDATE metrics
+	// 		SET delta = delta + $2
+	// 		WHERE metric_name = $1
+	// 	`
+	// 	sqlStringInsert = `
+	// 		INSERT INTO metrics (metric_type, metric_name, delta)
+	// 		VALUES ($1, $2, $3)
+	// 	`
+	// }
 
-	row := storage.DB.QueryRowContext(storage.ctx, sqlStringSelect, key)
-	err := row.Scan(&metricID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			_, err = storage.DB.ExecContext(storage.ctx, sqlStringInsert, mType, key, value)
-			if err != nil {
-				log.Print(err)
-				return false
-			}
-			return true
-		}
-		log.Print(err)
-		return false
-	}
+	// row := storage.DB.QueryRowContext(storage.ctx, sqlStringSelect, key)
+	// err := row.Scan(&metricID)
+	// if err != nil {
+	// 	if errors.Is(err, sql.ErrNoRows) {
+	// 		_, err = storage.DB.ExecContext(storage.ctx, sqlStringInsert, mType, key, value)
+	// 		if err != nil {
+	// 			log.Print(err)
+	// 			return false
+	// 		}
+	// 		return true
+	// 	}
+	// 	log.Print(err)
+	// 	return false
+	// }
 
-	_, err = storage.DB.ExecContext(storage.ctx, sqlStringUpdate, key, value)
-	if err != nil {
-		log.Print(err)
-		return false
-	}
+	// _, err = storage.DB.ExecContext(storage.ctx, sqlStringUpdate, key, value)
+	// if err != nil {
+	// 	log.Print(err)
+	// 	return false
+	// }
 
-	return true
+	// return true
 }
 
 func (storage *DBStorage) AddGaugeItem(key string, value model.Gauge) bool {
@@ -315,6 +332,54 @@ func (storage *DBStorage) GetCounterItems() (map[string]model.Counter, bool) {
 	}
 
 	return result, true
+}
+
+func (storage *DBStorage) AddMetricsPack(metrics *model.MetricsPack) bool {
+
+	tx, err := storage.DB.Begin()
+	if err != nil {
+		log.Print(err)
+		return false
+	}
+
+	var sqlString string = ""
+	var value any
+
+	for _, el := range metrics.Metrics {
+		mType := strings.ToUpper(el.MType)
+		switch mType {
+		case "GAUGE":
+			sqlString = `
+				INSERT INTO metrics (metric_type, metric_name, value)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (metric_name) DO UPDATE SET value = $3
+			`
+			value = el.Value
+		case "COUNTER":
+			sqlString = `
+				INSERT INTO metrics (metric_type, metric_name, delta)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (metric_name) DO UPDATE SET delta = metrics.delta + $3
+			`
+			value = el.Delta
+		}
+
+		_, err := tx.ExecContext(storage.ctx, sqlString, mType, el.ID, value)
+		if err != nil {
+			tx.Rollback()
+			log.Print(err)
+			return false
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Print(err)
+		return false
+	}
+
+	return true
+
 }
 
 func (storage *DBStorage) GetStringGaugeItems() (map[string]string, bool) {

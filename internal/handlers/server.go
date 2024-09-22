@@ -55,6 +55,7 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 			r.Post("/", h.updateMetricJSON)
 			r.Post("/{m_type}/{m_name}/{m_value}", h.updateMetricURI)
 		})
+		r.Post("/updates/", h.updatePackMetricsJSON)
 	})
 
 	return chiRouter
@@ -69,6 +70,44 @@ func (h *Handler) databasePing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) {
+
+	// var metric model.MetricsPack
+	var buf bytes.Buffer
+
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// h.logger.Debugf("| req %s", buf.Bytes())
+
+	// if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
+	// 	http.Error(w, err.Error(), http.StatusBadRequest)
+	// 	h.logger.Info(err)
+	// 	return
+	// }
+
+	err = h.services.ImportFromJSON(buf.Bytes())
+	if err != nil {
+		h.logger.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	// resp, err := json.Marshal(metric)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	h.logger.Error(err)
+	// 	return
+	// }
+	// w.Header().Set("Content-Type", "application/json")
+	// w.Header().Set("Content-Encoding", "gzip")
+	w.WriteHeader(http.StatusOK)
+	// w.Write(resp)
+	// h.logger.Debugf("| resp %s", resp)
 }
 
 func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {

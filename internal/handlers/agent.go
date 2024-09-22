@@ -232,6 +232,44 @@ func MetricsURIRequest(services *service.MetricService, host string) error {
 	return nil
 }
 
+func MetricsMapJSONRequest(services *service.MetricService, host string, logger *zap.SugaredLogger) error {
+	url := fmt.Sprintf("http://%s/updates/", host)
+	client := http.Client{}
+
+	metricsJSON, err := services.ExportToJSON()
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+	bodySend := bytes.NewBuffer(metricsJSON)
+
+	request, err := http.NewRequest(http.MethodPost, url, bodySend)
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept-Encoding", "gzip")
+
+	logger.Debugf("TRY %s %s", url, request.Body)
+
+	response, err := client.Do(request)
+	if err != nil {
+		logger.Error(err)
+		return nil
+	}
+
+	defer response.Body.Close()
+	logger.Debugf("OK %s %s", url, response.Status)
+
+	if response.StatusCode != 200 {
+		return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
+	}
+
+	return nil
+}
+
 func MetricsJSONRequest(services *service.MetricService, host string, logger *zap.SugaredLogger) error {
 
 	url := fmt.Sprintf("http://%s/update/", host)
