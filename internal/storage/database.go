@@ -232,7 +232,7 @@ func (storage *DBStorage) AddMetricsPack(metrics *model.MetricsPack) error {
 		return err
 	}
 
-	var sqlString string = ""
+	var sqlString string
 	var value any
 
 	for _, el := range metrics.Metrics {

@@ -53,14 +53,14 @@ func initAgentConfig(logger *zap.SugaredLogger) *agentConfig {
 		flag.IntVar(&cfg.ReportInterval, "r", defReportInterval, "reportInterval")
 	}
 
+	cfg.ReportInterval = 100
+
 	// Частота опроса метрик
 	if envPollInterval, ok := os.LookupEnv("POLL_INTERVAL"); ok {
 		cfg.PollInterval, _ = strconv.Atoi(envPollInterval)
 	} else {
 		flag.IntVar(&cfg.PollInterval, "p", defPollInterval, "pollInterval")
 	}
-
-	flag.Parse()
 
 	jsonConfig, _ := json.Marshal(cfg)
 	logger.Infof("Current agent config: %s", jsonConfig)
@@ -228,6 +228,7 @@ func RunAgent() error {
 	}
 
 	cfg := initAgentConfig(agentLogger)
+	flag.Parse()
 
 	db := storage.NewMemStorage()
 	agentServices := service.NewMetricService(db, false, false, "")

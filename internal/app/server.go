@@ -87,8 +87,6 @@ func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
 		flag.StringVar(&cfg.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
 	}
 
-	flag.Parse()
-
 	cfg.IsDatabaseUsage = false
 	if cfg.DatabaseDSN != "" {
 		cfg.IsDatabaseUsage = true
@@ -180,6 +178,8 @@ func RunServer() {
 	}
 
 	cfg := initServerConfig(serverLogger)
+	flag.Parse()
+
 	var serv *service.MetricService
 
 	if cfg.IsDatabaseUsage {
