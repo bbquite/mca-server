@@ -87,6 +87,8 @@ func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
 		flag.StringVar(&cfg.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
 	}
 
+	flag.Parse()
+
 	cfg.IsDatabaseUsage = false
 	if cfg.DatabaseDSN != "" {
 		cfg.IsDatabaseUsage = true
@@ -96,8 +98,6 @@ func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
 	if cfg.StoreInterval == 0 && !cfg.IsDatabaseUsage {
 		cfg.IsSyncSaving = true
 	}
-
-	flag.Parse()
 
 	jsonConfig, _ := json.Marshal(cfg)
 	logger.Infof("Server run with config: %s", jsonConfig)
@@ -180,7 +180,6 @@ func RunServer() {
 	}
 
 	cfg := initServerConfig(serverLogger)
-
 	var serv *service.MetricService
 
 	if cfg.IsDatabaseUsage {

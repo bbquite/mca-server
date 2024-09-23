@@ -53,8 +53,6 @@ func initAgentConfig(logger *zap.SugaredLogger) *agentConfig {
 		flag.IntVar(&cfg.ReportInterval, "r", defReportInterval, "reportInterval")
 	}
 
-	cfg.ReportInterval = 100
-
 	// Частота опроса метрик
 	if envPollInterval, ok := os.LookupEnv("POLL_INTERVAL"); ok {
 		cfg.PollInterval, _ = strconv.Atoi(envPollInterval)
