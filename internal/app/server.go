@@ -74,7 +74,7 @@ func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
 	if envRESTORE, ok := os.LookupEnv("RESTORE"); ok {
 		boolValue, err := strconv.ParseBool(envRESTORE)
 		if err != nil {
-			flag.BoolVar(&cfg.Restore, "i", defRestore, "RESTORE")
+			flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
 		}
 		cfg.Restore = boolValue
 	} else {

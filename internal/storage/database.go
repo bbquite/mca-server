@@ -170,6 +170,10 @@ func (storage *DBStorage) GetGaugeItems() (map[string]model.Gauge, error) {
 		return nil, err
 	}
 
+	if rows.Err() != nil {
+		return nil, err
+	}
+
 	for rows.Next() {
 		var metricName string
 		var metricValue model.Gauge
@@ -199,6 +203,10 @@ func (storage *DBStorage) GetCounterItems() (map[string]model.Counter, error) {
 
 	rows, err := storage.DB.QueryContext(storage.ctx, sqlStringSelect)
 	if err != nil {
+		return nil, err
+	}
+
+	if rows.Err() != nil {
 		return nil, err
 	}
 
