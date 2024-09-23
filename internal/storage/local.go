@@ -79,9 +79,9 @@ func (storage *MemStorage) ResetCounterItem(key string) error {
 
 	if _, ok := storage.CounterItems[key]; ok {
 		storage.CounterItems[key] = model.Counter(0)
-		return ErrorResetCounter
+		return nil
 	}
-	return nil
+	return ErrorResetCounter
 }
 
 func (storage *MemStorage) Ping() error {

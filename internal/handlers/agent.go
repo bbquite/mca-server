@@ -76,11 +76,6 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 
 	logger.Infof("Sending metrics to %s", host)
 
-	err = services.ResetCounterItem("PollCount")
-	if err != nil {
-		logger.Errorf("PollCount reset error")
-	}
-
 	for _, el := range metricsPack.Metrics {
 
 		body, err := json.Marshal(el)
@@ -110,6 +105,11 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 
 		defer response.Body.Close()
 		logger.Debugf("RESP %s %s", url, response.Status)
+	}
+
+	err = services.ResetCounterItem("PollCount")
+	if err != nil {
+		logger.Errorf("PollCount reset error")
 	}
 
 	return nil
@@ -145,6 +145,11 @@ func MetricsPackJSONRequest(services *service.MetricService, host string, logger
 
 	defer response.Body.Close()
 	logger.Debugf("RESP %s %s", url, response.Status)
+
+	err = services.ResetCounterItem("PollCount")
+	if err != nil {
+		logger.Errorf("PollCount reset error")
+	}
 
 	return nil
 }

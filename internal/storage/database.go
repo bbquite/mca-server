@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/bbquite/mca-server/internal/model"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -55,15 +55,13 @@ func (storage *DBStorage) CheckDatabaseValid() error {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
-			if pgErr.Code == "42P01" { // relation does not exist
+			if pgErr.Code == pgerrcode.UndefinedTable {
 				_, err = storage.DB.ExecContext(storage.ctx, sqlCreateString)
 				if err != nil {
-					log.Print(err)
 					return err
 				}
 			}
 		}
-		log.Print(err)
 		return err
 	}
 
@@ -111,54 +109,6 @@ func (storage *DBStorage) AddGaugeItem(key string, value model.Gauge) error {
 
 func (storage *DBStorage) AddCounterItem(key string, value model.Counter) error {
 	return storage.AddMetricItem("COUNTER", key, value)
-}
-
-func (storage *DBStorage) ResetCounterItem(key string) error {
-	// storage.mx.RLock()
-	// defer storage.mx.RUnlock()
-
-	// var metricID uint8
-
-	// sqlStringSelect := `
-	// 	SELECT id
-	// 	FROM metrics
-	// 	WHERE metric_name = $1
-	// 	LIMIT 1
-	// `
-
-	// sqlStringUpdate := `
-	// 	UPDATE metrics
-	// 	SET delta = delta + $2
-	// 	WHERE metric_name = $1
-	// `
-
-	// row := storage.DB.QueryRowContext(storage.ctx, sqlStringSelect, key)
-	// err := row.Scan(&metricID)
-	// if err != nil {
-	// 	log.Print(err)
-	// 	return false
-	// }
-
-	// _, err = storage.DB.ExecContext(storage.ctx, sqlStringUpdate, key, 0)
-	// if err != nil {
-	// 	log.Print(err)
-	// 	return false
-	// }
-
-	// return false
-
-	sqlString := `
-		INSERT INTO metrics (metric_type, metric_name, delta)
-		VALUES ($1, $2, 0)
-		ON CONFLICT (metric_name) DO UPDATE SET delta = 0
-	`
-
-	_, err := storage.DB.ExecContext(storage.ctx, sqlString, "COUNTER", key)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (storage *DBStorage) GetGaugeItem(key string) (model.Gauge, error) {
@@ -309,4 +259,8 @@ func (storage *DBStorage) AddMetricsPack(metrics *model.MetricsPack) error {
 	}
 
 	return nil
+}
+
+func (storage *DBStorage) ResetCounterItem(key string) error {
+	return errors.New("UNUSED")
 }
