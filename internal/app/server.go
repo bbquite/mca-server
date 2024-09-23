@@ -97,6 +97,8 @@ func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
 		cfg.IsSyncSaving = true
 	}
 
+	flag.Parse()
+
 	jsonConfig, _ := json.Marshal(cfg)
 	logger.Infof("Server run with config: %s", jsonConfig)
 
@@ -178,7 +180,6 @@ func RunServer() {
 	}
 
 	cfg := initServerConfig(serverLogger)
-	flag.Parse()
 
 	var serv *service.MetricService
 

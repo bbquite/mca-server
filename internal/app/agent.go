@@ -62,6 +62,8 @@ func initAgentConfig(logger *zap.SugaredLogger) *agentConfig {
 		flag.IntVar(&cfg.PollInterval, "p", defPollInterval, "pollInterval")
 	}
 
+	flag.Parse()
+
 	jsonConfig, _ := json.Marshal(cfg)
 	logger.Infof("Current agent config: %s", jsonConfig)
 
@@ -228,7 +230,6 @@ func RunAgent() error {
 	}
 
 	cfg := initAgentConfig(agentLogger)
-	flag.Parse()
 
 	db := storage.NewMemStorage()
 	agentServices := service.NewMetricService(db, false, false, "")
