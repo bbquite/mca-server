@@ -105,6 +105,67 @@ func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
 	return cfg
 }
 
+func initServerConfigFlags(logger *zap.SugaredLogger) *serverConfig {
+	cfg := new(serverConfig)
+
+	flag.StringVar(&cfg.Host, "a", defHost, "HOST")
+	flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
+	flag.StringVar(&cfg.FileStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
+	flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
+	flag.StringVar(&cfg.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
+
+	return cfg
+}
+
+func initServerConfigENV(cfg *serverConfig, logger *zap.SugaredLogger) *serverConfig {
+
+	err := godotenv.Load()
+	if err != nil {
+		logger.Info(".env file not found")
+	}
+
+	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
+		cfg.Host = envHOST
+	}
+
+	if envSTOREINTERVAL, ok := os.LookupEnv("STORE_INTERVAL"); ok {
+		storeInterval, err := strconv.ParseInt(envSTOREINTERVAL, 10, 64)
+		if err == nil {
+			cfg.StoreInterval = storeInterval
+		}
+	}
+
+	if envFILESTORAGEPATH, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
+		cfg.FileStoragePath = envFILESTORAGEPATH
+	}
+
+	if envRESTORE, ok := os.LookupEnv("RESTORE"); ok {
+		boolValue, err := strconv.ParseBool(envRESTORE)
+		if err == nil {
+			cfg.Restore = boolValue
+		}
+	}
+
+	if envDATABASE, ok := os.LookupEnv("DATABASE_DSN"); ok {
+		cfg.DatabaseDSN = envDATABASE
+	}
+
+	cfg.IsDatabaseUsage = false
+	if cfg.DatabaseDSN != "" {
+		cfg.IsDatabaseUsage = true
+	}
+
+	cfg.IsSyncSaving = false
+	if cfg.StoreInterval == 0 && !cfg.IsDatabaseUsage {
+		cfg.IsSyncSaving = true
+	}
+
+	jsonConfig, _ := json.Marshal(cfg)
+	logger.Infof("Server run with config: %s", jsonConfig)
+
+	return cfg
+}
+
 type server struct {
 	httpServer *http.Server
 }
@@ -128,7 +189,7 @@ func (s *server) runHTTPSever(cfg *serverConfig, mux *chi.Mux, service *service.
 		}
 	}()
 
-	if cfg.StoreInterval > 0 {
+	if cfg.StoreInterval > 0 && !cfg.IsDatabaseUsage {
 		go func() {
 			for {
 				time.Sleep(time.Duration(cfg.StoreInterval) * time.Second)
@@ -141,7 +202,7 @@ func (s *server) runHTTPSever(cfg *serverConfig, mux *chi.Mux, service *service.
 		}()
 	}
 
-	if cfg.Restore {
+	if cfg.Restore && !cfg.IsDatabaseUsage {
 		logger.Debugf("Import storage from %s", cfg.FileStoragePath)
 		err := service.LoadFromFile(cfg.FileStoragePath)
 		if err != nil {
@@ -179,7 +240,11 @@ func RunServer() {
 		serverLogger.Fatalf("server logger init error: %v", err)
 	}
 
-	cfg := initServerConfig(serverLogger)
+	cfg1 := initServerConfigFlags(serverLogger)
+	flag.Parse()
+	cfg := initServerConfigENV(cfg1, serverLogger)
+
+	// cfg := initServerConfig(serverLogger)
 	var serv *service.MetricService
 
 	if cfg.IsDatabaseUsage {
