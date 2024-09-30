@@ -40,80 +40,78 @@ type serverConfig struct {
 	IsSyncSaving    bool `json:"SyncSaving"`
 }
 
-func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
+// func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
+// 	cfg := new(serverConfig)
+
+// 	err := godotenv.Load()
+// 	if err != nil {
+// 		logger.Info(".env file not found")
+// 	}
+
+// 	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
+// 		cfg.Host = envHOST
+// 	} else {
+// 		flag.StringVar(&cfg.Host, "a", defHost, "HOST")
+// 	}
+
+// 	if envSTOREINTERVAL, ok := os.LookupEnv("STORE_INTERVAL"); ok {
+// 		storeInterval, err := strconv.ParseInt(envSTOREINTERVAL, 10, 64)
+// 		if err != nil {
+// 			flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
+// 		} else {
+// 			cfg.StoreInterval = storeInterval
+// 		}
+// 	} else {
+// 		flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
+// 	}
+
+// 	if envFILESTORAGEPATH, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
+// 		cfg.FileStoragePath = envFILESTORAGEPATH
+// 	} else {
+// 		flag.StringVar(&cfg.FileStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
+// 	}
+
+// 	if envRESTORE, ok := os.LookupEnv("RESTORE"); ok {
+// 		boolValue, err := strconv.ParseBool(envRESTORE)
+// 		if err != nil {
+// 			flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
+// 		}
+// 		cfg.Restore = boolValue
+// 	} else {
+// 		flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
+// 	}
+
+// 	if envDATABASE, ok := os.LookupEnv("DATABASE_DSN"); ok {
+// 		cfg.DatabaseDSN = envDATABASE
+// 	} else {
+// 		flag.StringVar(&cfg.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
+// 	}
+
+// 	flag.Parse()
+
+// 	cfg.IsDatabaseUsage = false
+// 	if cfg.DatabaseDSN != "" {
+// 		cfg.IsDatabaseUsage = true
+// 	}
+
+// 	cfg.IsSyncSaving = false
+// 	if cfg.StoreInterval == 0 && !cfg.IsDatabaseUsage {
+// 		cfg.IsSyncSaving = true
+// 	}
+
+// 	jsonConfig, _ := json.Marshal(cfg)
+// 	logger.Infof("Server run with config: %s", jsonConfig)
+
+// 	return cfg
+// }
+
+func initServerConfigFlags() *serverConfig {
 	cfg := new(serverConfig)
-
-	err := godotenv.Load()
-	if err != nil {
-		logger.Info(".env file not found")
-	}
-
-	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
-		cfg.Host = envHOST
-	} else {
-		flag.StringVar(&cfg.Host, "a", defHost, "HOST")
-	}
-
-	if envSTOREINTERVAL, ok := os.LookupEnv("STORE_INTERVAL"); ok {
-		storeInterval, err := strconv.ParseInt(envSTOREINTERVAL, 10, 64)
-		if err != nil {
-			flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
-		} else {
-			cfg.StoreInterval = storeInterval
-		}
-	} else {
-		flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
-	}
-
-	if envFILESTORAGEPATH, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
-		cfg.FileStoragePath = envFILESTORAGEPATH
-	} else {
-		flag.StringVar(&cfg.FileStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
-	}
-
-	if envRESTORE, ok := os.LookupEnv("RESTORE"); ok {
-		boolValue, err := strconv.ParseBool(envRESTORE)
-		if err != nil {
-			flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
-		}
-		cfg.Restore = boolValue
-	} else {
-		flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
-	}
-
-	if envDATABASE, ok := os.LookupEnv("DATABASE_DSN"); ok {
-		cfg.DatabaseDSN = envDATABASE
-	} else {
-		flag.StringVar(&cfg.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
-	}
-
-	flag.Parse()
-
-	cfg.IsDatabaseUsage = false
-	if cfg.DatabaseDSN != "" {
-		cfg.IsDatabaseUsage = true
-	}
-
-	cfg.IsSyncSaving = false
-	if cfg.StoreInterval == 0 && !cfg.IsDatabaseUsage {
-		cfg.IsSyncSaving = true
-	}
-
-	jsonConfig, _ := json.Marshal(cfg)
-	logger.Infof("Server run with config: %s", jsonConfig)
-
-	return cfg
-}
-
-func initServerConfigFlags(logger *zap.SugaredLogger) *serverConfig {
-	cfg := new(serverConfig)
-
 	flag.StringVar(&cfg.Host, "a", defHost, "HOST")
 	flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
 	flag.StringVar(&cfg.FileStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
 	flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
 	flag.StringVar(&cfg.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
-
 	return cfg
 }
 
@@ -244,7 +242,7 @@ func RunServer() {
 		serverLogger.Fatalf("server logger init error: %v", err)
 	}
 
-	cfg1 := initServerConfigFlags(serverLogger)
+	cfg1 := initServerConfigFlags()
 	flag.Parse()
 	cfg := initServerConfigENV(cfg1, serverLogger)
 
