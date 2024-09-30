@@ -43,6 +43,7 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
 
 	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
+	// chiRouter.Use(chiMiddleware.Logger)
 	chiRouter.Use(middleware.GzipMiddleware)
 
 	chiRouter.Route("/", func(r chi.Router) {
@@ -81,6 +82,8 @@ func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	h.logger.Debugf("| req %s", buf.Bytes())
 
 	err = h.services.ImportFromJSON(buf.Bytes())
 	if err != nil {

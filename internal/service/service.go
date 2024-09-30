@@ -141,7 +141,7 @@ func (s *MetricService) GetAllMetrics() (model.MetricsPack, error) {
 			Delta: &metricValue,
 		}
 
-		metricResult.Metrics = append(metricResult.Metrics, metric)
+		metricResult = append(metricResult, metric)
 
 	}
 
@@ -159,7 +159,7 @@ func (s *MetricService) GetAllMetrics() (model.MetricsPack, error) {
 			Value: &metricValue,
 		}
 
-		metricResult.Metrics = append(metricResult.Metrics, metric)
+		metricResult = append(metricResult, metric)
 	}
 
 	return metricResult, nil
@@ -193,7 +193,7 @@ func (s *MetricService) ImportFromJSON(data []byte) error {
 		return nil
 	}
 
-	for _, element := range metricStruct.Metrics {
+	for _, element := range metricStruct {
 		switch element.MType {
 		case "gauge":
 			_, err = s.AddGaugeItem(element.ID, model.Gauge(*element.Value))

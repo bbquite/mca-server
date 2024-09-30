@@ -28,7 +28,7 @@ func MetricsURIRequest(services *service.MetricService, host string, logger *zap
 		logger.Errorf("PollCount reset error")
 	}
 
-	for _, el := range metricsPack.Metrics {
+	for _, el := range metricsPack {
 		switch el.MType {
 		case "gauge":
 			value = fmt.Sprintf("%.2f", *el.Value)
@@ -76,7 +76,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 
 	logger.Infof("Sending metrics to %s", host)
 
-	for _, el := range metricsPack.Metrics {
+	for _, el := range metricsPack {
 
 		body, err := json.Marshal(el)
 		if err != nil {

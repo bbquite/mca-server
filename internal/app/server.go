@@ -160,6 +160,10 @@ func initServerConfigENV(cfg *serverConfig, logger *zap.SugaredLogger) *serverCo
 		cfg.IsSyncSaving = true
 	}
 
+	if cfg.IsDatabaseUsage {
+		cfg.Restore = false
+	}
+
 	jsonConfig, _ := json.Marshal(cfg)
 	logger.Infof("Server run with config: %s", jsonConfig)
 

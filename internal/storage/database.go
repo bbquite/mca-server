@@ -127,6 +127,9 @@ func (storage *DBStorage) GetGaugeItem(key string) (model.Gauge, error) {
 	row := storage.DB.QueryRowContext(storage.ctx, sqlStringSelect, key)
 	err := row.Scan(&metric)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, ErrorGaugeNotFound
+		}
 		return 0, err
 	}
 	return metric, nil
@@ -148,6 +151,9 @@ func (storage *DBStorage) GetCounterItem(key string) (model.Counter, error) {
 	row := storage.DB.QueryRowContext(storage.ctx, sqlStringSelect, key)
 	err := row.Scan(&metric)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, ErrorCounterNotFound
+		}
 		return 0, err
 	}
 	return metric, nil
@@ -235,7 +241,7 @@ func (storage *DBStorage) AddMetricsPack(metrics *model.MetricsPack) error {
 	var sqlString string
 	var value any
 
-	for _, el := range metrics.Metrics {
+	for _, el := range *metrics {
 		mType := strings.ToUpper(el.MType)
 		switch mType {
 		case "GAUGE":

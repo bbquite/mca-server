@@ -10,9 +10,11 @@ type Metric struct {
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
-type MetricsPack struct {
-	Metrics []Metric `json:"metrics"`
-}
+// type MetricsPack struct {
+// 	Metrics []Metric `json:"metrics"`
+// }
+
+type MetricsPack []Metric
 
 // CREATE TYPE metric_type AS ENUM (
 //     'GAUGE',
