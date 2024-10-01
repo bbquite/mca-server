@@ -31,39 +31,23 @@ type agentConfig struct {
 	PollInterval   int    `json:"poll_interval"`
 }
 
-func initAgentConfig(logger *zap.SugaredLogger) *agentConfig {
-	cfg := new(agentConfig)
-
+func initAgentConfigENV(cfg *agentConfig) *agentConfig {
 	err := godotenv.Load()
 	if err != nil {
-		logger.Info(".env file not found")
+		log.Print(".env file not found")
 	}
 
-	// Хост
 	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
 		cfg.Host = envHOST
-	} else {
-		flag.StringVar(&cfg.Host, "a", defServerHost, "server host")
 	}
 
-	// Частота отправки метрик
 	if envReportInterval, ok := os.LookupEnv("REPORT_INTERVAL"); ok {
 		cfg.ReportInterval, _ = strconv.Atoi(envReportInterval)
-	} else {
-		flag.IntVar(&cfg.ReportInterval, "r", defReportInterval, "reportInterval")
 	}
 
-	// Частота опроса метрик
 	if envPollInterval, ok := os.LookupEnv("POLL_INTERVAL"); ok {
 		cfg.PollInterval, _ = strconv.Atoi(envPollInterval)
-	} else {
-		flag.IntVar(&cfg.PollInterval, "p", defPollInterval, "pollInterval")
 	}
-
-	flag.Parse()
-
-	jsonConfig, _ := json.Marshal(cfg)
-	logger.Infof("Current agent config: %s", jsonConfig)
 
 	return cfg
 }
@@ -222,15 +206,28 @@ func collectMetrics(memStat *runtime.MemStats, services *service.MetricService, 
 
 func RunAgent() error {
 
+	cfgFlags := new(agentConfig)
+
+	flag.StringVar(&cfgFlags.Host, "a", defServerHost, "server host")
+	flag.IntVar(&cfgFlags.ReportInterval, "r", defReportInterval, "reportInterval")
+	flag.IntVar(&cfgFlags.PollInterval, "p", defPollInterval, "pollInterval")
+	flag.Parse()
+
+	cfg := initAgentConfigENV(cfgFlags)
+
 	agentLogger, err := utils.InitLogger()
 	if err != nil {
 		log.Fatalf("agent logger init error: %v", err)
 	}
 
-	cfg := initAgentConfig(agentLogger)
+	jsonConfig, _ := json.Marshal(cfg)
+	agentLogger.Infof("Current agent config: %s", jsonConfig)
 
 	db := storage.NewMemStorage()
-	agentServices := service.NewMetricService(db, false, false, "")
+	agentServices, err := service.NewMetricService(db, false, false, "")
+	if err != nil {
+		log.Fatalf("service construction error: %v", err)
+	}
 
 	pollTicker := time.NewTicker(time.Duration(cfg.PollInterval) * time.Second)
 	reportTicker := time.NewTicker(time.Duration(cfg.ReportInterval) * time.Second)

@@ -14,19 +14,19 @@ import (
 )
 
 type DBStorage struct {
-	DB  *sql.DB
-	ctx context.Context
+	Conn *sql.DB
+	ctx  context.Context
 }
 
 func NewDBStorage(ctx context.Context, databaseDSN string) (*DBStorage, error) {
-	db, err := sql.Open("pgx", databaseDSN)
+	conn, err := sql.Open("pgx", databaseDSN)
 	if err != nil {
 		return &DBStorage{}, err
 	}
 
 	return &DBStorage{
-		DB:  db,
-		ctx: ctx,
+		Conn: conn,
+		ctx:  ctx,
 	}, nil
 }
 
@@ -50,13 +50,13 @@ func (storage *DBStorage) CheckDatabaseValid() error {
 		);
 	`
 
-	_, err = storage.DB.ExecContext(storage.ctx, sqlCheckString)
+	_, err = storage.Conn.ExecContext(storage.ctx, sqlCheckString)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == pgerrcode.UndefinedTable {
-				_, err = storage.DB.ExecContext(storage.ctx, sqlCreateString)
+				_, err = storage.Conn.ExecContext(storage.ctx, sqlCreateString)
 				if err != nil {
 					return err
 				}
@@ -71,7 +71,7 @@ func (storage *DBStorage) CheckDatabaseValid() error {
 func (storage *DBStorage) Ping() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	if err := storage.DB.PingContext(ctx); err != nil {
+	if err := storage.Conn.PingContext(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -95,7 +95,7 @@ func (storage *DBStorage) AddMetricItem(mType string, key string, value any) err
 		`
 	}
 
-	_, err := storage.DB.ExecContext(storage.ctx, sqlString, mType, key, value)
+	_, err := storage.Conn.ExecContext(storage.ctx, sqlString, mType, key, value)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (storage *DBStorage) GetGaugeItem(key string) (model.Gauge, error) {
 		LIMIT 1
 	`
 
-	row := storage.DB.QueryRowContext(storage.ctx, sqlStringSelect, key)
+	row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
 	err := row.Scan(&metric)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -148,7 +148,7 @@ func (storage *DBStorage) GetCounterItem(key string) (model.Counter, error) {
 		LIMIT 1
 	`
 
-	row := storage.DB.QueryRowContext(storage.ctx, sqlStringSelect, key)
+	row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
 	err := row.Scan(&metric)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -171,7 +171,7 @@ func (storage *DBStorage) GetGaugeItems() (map[string]model.Gauge, error) {
 		WHERE metric_type = 'GAUGE'
 	`
 
-	rows, err := storage.DB.QueryContext(storage.ctx, sqlStringSelect)
+	rows, err := storage.Conn.QueryContext(storage.ctx, sqlStringSelect)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (storage *DBStorage) GetCounterItems() (map[string]model.Counter, error) {
 		WHERE metric_type = 'COUNTER'
 	`
 
-	rows, err := storage.DB.QueryContext(storage.ctx, sqlStringSelect)
+	rows, err := storage.Conn.QueryContext(storage.ctx, sqlStringSelect)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +233,7 @@ func (storage *DBStorage) GetCounterItems() (map[string]model.Counter, error) {
 
 func (storage *DBStorage) AddMetricsPack(metrics *model.MetricsPack) error {
 
-	tx, err := storage.DB.Begin()
+	tx, err := storage.Conn.Begin()
 	if err != nil {
 		return err
 	}
@@ -275,6 +275,11 @@ func (storage *DBStorage) AddMetricsPack(metrics *model.MetricsPack) error {
 	return nil
 }
 
+/*
+Агент и Сервер испрльзуют одно и то же инмемори хранилище, но разные инстансы
+ResetCounterItem используется агентом в инмемори хранилище чтоб сбрасывать значение PollCount перед сбором метрик
+т.к. каунтер метрики не перезаписываются, а увеличиваются на N значение
+*/
 func (storage *DBStorage) ResetCounterItem(key string) error {
 	return errors.New("UNUSED")
 }

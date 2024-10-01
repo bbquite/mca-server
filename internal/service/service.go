@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/bbquite/mca-server/internal/model"
+	"github.com/bbquite/mca-server/internal/utils"
+	"go.uber.org/zap"
 )
 
 type MemStorageRepo interface {
@@ -30,15 +32,23 @@ type MetricService struct {
 	syncSave        bool
 	filePath        string
 	isDatabaseUsage bool
+	logger          *zap.SugaredLogger
 }
 
-func NewMetricService(store MemStorageRepo, syncSave bool, isDatabaseUsage bool, filePath string) *MetricService {
+func NewMetricService(store MemStorageRepo, syncSave bool, isDatabaseUsage bool, filePath string) (*MetricService, error) {
+
+	logger, err := utils.InitLogger()
+	if err != nil {
+		return nil, err
+	}
+
 	return &MetricService{
 		store:           store,
 		syncSave:        syncSave,
 		filePath:        filePath,
 		isDatabaseUsage: isDatabaseUsage,
-	}
+		logger:          logger,
+	}, nil
 }
 
 func (s *MetricService) PingDatabase() error {
@@ -58,7 +68,7 @@ func (s *MetricService) AddGaugeItem(key string, value model.Gauge) (model.Gauge
 	if s.syncSave {
 		err = s.SaveToFile(s.filePath)
 		if err != nil {
-			log.Print(err)
+			s.logger.Error(err)
 		}
 	}
 	return model.Gauge(value), nil
@@ -73,7 +83,7 @@ func (s *MetricService) AddCounterItem(key string, value model.Counter) (model.C
 	if s.syncSave {
 		err = s.SaveToFile(s.filePath)
 		if err != nil {
-			log.Print(err)
+			s.logger.Error(err)
 		}
 	}
 	return model.Counter(value), nil
@@ -188,26 +198,34 @@ func (s *MetricService) ImportFromJSON(data []byte) error {
 		return err
 	}
 
-	if s.isDatabaseUsage {
-		s.store.AddMetricsPack(&metricStruct)
-		return nil
+	err = s.store.AddMetricsPack(&metricStruct)
+	if err != nil {
+		return err
 	}
 
-	for _, element := range metricStruct {
-		switch element.MType {
-		case "gauge":
-			_, err = s.AddGaugeItem(element.ID, model.Gauge(*element.Value))
-			if err != nil {
-				return err
-			}
+	// if s.isDatabaseUsage {
+	// 	err := s.store.AddMetricsPack(&metricStruct)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	return nil
+	// }
 
-		case "counter":
-			_, err = s.AddCounterItem(element.ID, model.Counter(*element.Delta))
-			if err != nil {
-				return err
-			}
-		}
-	}
+	// for _, element := range metricStruct {
+	// 	switch element.MType {
+	// 	case "gauge":
+	// 		_, err = s.AddGaugeItem(element.ID, model.Gauge(*element.Value))
+	// 		if err != nil {
+	// 			return err
+	// 		}
+
+	// 	case "counter":
+	// 		_, err = s.AddCounterItem(element.ID, model.Counter(*element.Delta))
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 	return nil
 }
 

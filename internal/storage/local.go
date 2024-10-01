@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/bbquite/mca-server/internal/model"
@@ -84,10 +83,27 @@ func (storage *MemStorage) ResetCounterItem(key string) error {
 	return ErrorResetCounter
 }
 
-func (storage *MemStorage) Ping() error {
-	return errors.New("UNUSED")
+func (storage *MemStorage) AddMetricsPack(metrics *model.MetricsPack) error {
+	storage.mx.Lock()
+	defer storage.mx.Unlock()
+
+	for _, element := range *metrics {
+		switch element.MType {
+		case "gauge":
+			storage.GaugeItems[element.ID] = model.Gauge(*element.Value)
+
+		case "counter":
+			if _, ok := storage.CounterItems[element.ID]; ok {
+				storage.CounterItems[element.ID] = storage.CounterItems[element.ID] + model.Counter(*element.Value)
+			} else {
+				storage.CounterItems[element.ID] = model.Counter(*element.Value)
+			}
+		}
+	}
+	return nil
 }
 
-func (storage *MemStorage) AddMetricsPack(metrics *model.MetricsPack) error {
-	return errors.New("UNUSED")
+func (storage *MemStorage) Ping() error {
+	// инмемори хранилище всегда доступно поэтому ошибок быть не может
+	return nil
 }

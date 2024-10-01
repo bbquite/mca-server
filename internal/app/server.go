@@ -27,6 +27,7 @@ const (
 	defFileStoragePath string = "backup.json"
 	defRestore         bool   = true
 	defDatabase        string = ""
+	defKey             string = "defaultshakey"
 )
 
 type serverConfig struct {
@@ -40,86 +41,11 @@ type serverConfig struct {
 	IsSyncSaving    bool `json:"SyncSaving"`
 }
 
-// func initServerConfig(logger *zap.SugaredLogger) *serverConfig {
-// 	cfg := new(serverConfig)
-
-// 	err := godotenv.Load()
-// 	if err != nil {
-// 		logger.Info(".env file not found")
-// 	}
-
-// 	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
-// 		cfg.Host = envHOST
-// 	} else {
-// 		flag.StringVar(&cfg.Host, "a", defHost, "HOST")
-// 	}
-
-// 	if envSTOREINTERVAL, ok := os.LookupEnv("STORE_INTERVAL"); ok {
-// 		storeInterval, err := strconv.ParseInt(envSTOREINTERVAL, 10, 64)
-// 		if err != nil {
-// 			flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
-// 		} else {
-// 			cfg.StoreInterval = storeInterval
-// 		}
-// 	} else {
-// 		flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
-// 	}
-
-// 	if envFILESTORAGEPATH, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
-// 		cfg.FileStoragePath = envFILESTORAGEPATH
-// 	} else {
-// 		flag.StringVar(&cfg.FileStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
-// 	}
-
-// 	if envRESTORE, ok := os.LookupEnv("RESTORE"); ok {
-// 		boolValue, err := strconv.ParseBool(envRESTORE)
-// 		if err != nil {
-// 			flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
-// 		}
-// 		cfg.Restore = boolValue
-// 	} else {
-// 		flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
-// 	}
-
-// 	if envDATABASE, ok := os.LookupEnv("DATABASE_DSN"); ok {
-// 		cfg.DatabaseDSN = envDATABASE
-// 	} else {
-// 		flag.StringVar(&cfg.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
-// 	}
-
-// 	flag.Parse()
-
-// 	cfg.IsDatabaseUsage = false
-// 	if cfg.DatabaseDSN != "" {
-// 		cfg.IsDatabaseUsage = true
-// 	}
-
-// 	cfg.IsSyncSaving = false
-// 	if cfg.StoreInterval == 0 && !cfg.IsDatabaseUsage {
-// 		cfg.IsSyncSaving = true
-// 	}
-
-// 	jsonConfig, _ := json.Marshal(cfg)
-// 	logger.Infof("Server run with config: %s", jsonConfig)
-
-// 	return cfg
-// }
-
-func initServerConfigFlags() *serverConfig {
-	cfg := new(serverConfig)
-	flag.StringVar(&cfg.Host, "a", defHost, "HOST")
-	flag.Int64Var(&cfg.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
-	flag.StringVar(&cfg.FileStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
-	flag.BoolVar(&cfg.Restore, "r", defRestore, "RESTORE")
-	flag.StringVar(&cfg.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
-	return cfg
-}
-
-func initServerConfigENV(cfg *serverConfig, logger *zap.SugaredLogger) *serverConfig {
+func initServerConfigENV(cfg *serverConfig) *serverConfig {
 
 	err := godotenv.Load()
 	if err != nil {
-		logger.Info(".env file not found")
+		log.Print(".env file not found")
 	}
 
 	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
@@ -161,9 +87,6 @@ func initServerConfigENV(cfg *serverConfig, logger *zap.SugaredLogger) *serverCo
 	if cfg.IsDatabaseUsage {
 		cfg.Restore = false
 	}
-
-	jsonConfig, _ := json.Marshal(cfg)
-	logger.Infof("Server run with config: %s", jsonConfig)
 
 	return cfg
 }
@@ -237,16 +160,21 @@ func RunServer() {
 
 	ctx := context.Background()
 
+	cfgFlags := new(serverConfig)
+	flag.StringVar(&cfgFlags.Host, "a", defHost, "HOST")
+	flag.Int64Var(&cfgFlags.StoreInterval, "i", defStoreInterval, "STORE_INTERVAL")
+	flag.StringVar(&cfgFlags.FileStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
+	flag.BoolVar(&cfgFlags.Restore, "r", defRestore, "RESTORE")
+	flag.StringVar(&cfgFlags.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
+	flag.Parse()
+
+	cfg := initServerConfigENV(cfgFlags)
+
 	serverLogger, err := utils.InitLogger()
 	if err != nil {
-		serverLogger.Fatalf("server logger init error: %v", err)
+		log.Fatalf("server logger init error: %v", err)
 	}
 
-	cfg1 := initServerConfigFlags()
-	flag.Parse()
-	cfg := initServerConfigENV(cfg1, serverLogger)
-
-	// cfg := initServerConfig(serverLogger)
 	var serv *service.MetricService
 
 	if cfg.IsDatabaseUsage {
@@ -254,24 +182,33 @@ func RunServer() {
 		if err != nil {
 			log.Fatalf("database connection error: %v", err)
 		}
-		defer storageInstance.DB.Close()
+		defer storageInstance.Conn.Close()
 
 		err = storageInstance.CheckDatabaseValid()
 		if err != nil {
 			log.Fatalf("database struct error: %v", err)
 		}
 
-		serv = service.NewMetricService(storageInstance, false, true, "")
+		serv, err = service.NewMetricService(storageInstance, false, true, "")
+		if err != nil {
+			log.Fatalf("service construction error: %v", err)
+		}
 
 	} else {
 		storageInstance := storage.NewMemStorage()
-		serv = service.NewMetricService(storageInstance, cfg.IsSyncSaving, false, cfg.FileStoragePath)
+		serv, err = service.NewMetricService(storageInstance, cfg.IsSyncSaving, false, cfg.FileStoragePath)
+		if err != nil {
+			log.Fatalf("service construction error: %v", err)
+		}
 	}
 
 	handler, err := handlers.NewHandler(serv, serverLogger)
 	if err != nil {
 		log.Fatalf("handler construction error: %v", err)
 	}
+
+	jsonConfig, _ := json.Marshal(cfg)
+	serverLogger.Infof("Server run with config: %s", jsonConfig)
 
 	srv := new(server)
 	srv.runHTTPSever(cfg, handler.InitChiRoutes(), serv, serverLogger)
