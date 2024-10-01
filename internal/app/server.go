@@ -36,6 +36,7 @@ type serverConfig struct {
 	FileStoragePath string `json:"FILE_STORAGE_PATH"`
 	Restore         bool   `json:"RESTORE"`
 	DatabaseDSN     string `json:"DATABASE_DSN"`
+	Key             string `json:"KEY"`
 
 	IsDatabaseUsage bool `json:"DBUsage"`
 	IsSyncSaving    bool `json:"SyncSaving"`
@@ -50,6 +51,10 @@ func initServerConfigENV(cfg *serverConfig) *serverConfig {
 
 	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
 		cfg.Host = envHOST
+	}
+
+	if envKEY, ok := os.LookupEnv("KEY"); ok {
+		cfg.Key = envKEY
 	}
 
 	if envSTOREINTERVAL, ok := os.LookupEnv("STORE_INTERVAL"); ok {
@@ -168,6 +173,7 @@ func RunServer() {
 	flag.StringVar(&cfgFlags.FileStoragePath, "f", defFileStoragePath, "FILE_STORAGE_PATH")
 	flag.BoolVar(&cfgFlags.Restore, "r", defRestore, "RESTORE")
 	flag.StringVar(&cfgFlags.DatabaseDSN, "d", defDatabase, "DATABASE_DSN")
+	flag.StringVar(&cfgFlags.Key, "k", defKey, "KEY")
 	flag.Parse()
 
 	cfg := initServerConfigENV(cfgFlags)
@@ -191,20 +197,20 @@ func RunServer() {
 			log.Fatalf("database struct error: %v", err)
 		}
 
-		serv, err = service.NewMetricService(storageInstance, false, true, "")
+		serv, err = service.NewMetricService(storageInstance, false, cfg.IsDatabaseUsage, "")
 		if err != nil {
 			log.Fatalf("service construction error: %v", err)
 		}
 
 	} else {
 		storageInstance := storage.NewMemStorage()
-		serv, err = service.NewMetricService(storageInstance, cfg.IsSyncSaving, false, cfg.FileStoragePath)
+		serv, err = service.NewMetricService(storageInstance, cfg.IsSyncSaving, cfg.IsDatabaseUsage, cfg.FileStoragePath)
 		if err != nil {
 			log.Fatalf("service construction error: %v", err)
 		}
 	}
 
-	handler, err := handlers.NewHandler(serv, serverLogger)
+	handler, err := handlers.NewHandler(serv, cfg.Key, serverLogger)
 	if err != nil {
 		log.Fatalf("handler construction error: %v", err)
 	}

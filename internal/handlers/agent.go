@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/utils"
 	"go.uber.org/zap"
 )
 
@@ -64,7 +66,7 @@ func MetricsURIRequest(services *service.MetricService, host string, logger *zap
 	return nil
 }
 
-func MetricsJSONRequest(services *service.MetricService, host string, logger *zap.SugaredLogger) error {
+func MetricsJSONRequest(services *service.MetricService, host string, shakey string, logger *zap.SugaredLogger) error {
 
 	url := fmt.Sprintf("http://%s/update/", host)
 	client := http.Client{}
@@ -85,11 +87,15 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		}
 
 		bodySend := bytes.NewBuffer(body)
-
 		request, err := http.NewRequest(http.MethodPost, url, bodySend)
 		if err != nil {
 			logger.Error(err)
 			return err
+		}
+
+		if shakey != "" {
+			sign := hex.EncodeToString(utils.MakeHMACSign(shakey, body))
+			request.Header.Set("HashSHA256", sign)
 		}
 
 		request.Header.Set("Content-Type", "application/json")
@@ -115,7 +121,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 	return nil
 }
 
-func MetricsPackJSONRequest(services *service.MetricService, host string, logger *zap.SugaredLogger) error {
+func MetricsPackJSONRequest(services *service.MetricService, host string, shakey string, logger *zap.SugaredLogger) error {
 	url := fmt.Sprintf("http://%s/updates/", host)
 	client := http.Client{}
 
@@ -130,6 +136,11 @@ func MetricsPackJSONRequest(services *service.MetricService, host string, logger
 	if err != nil {
 		logger.Error(err)
 		return err
+	}
+
+	if shakey != "" {
+		sign := hex.EncodeToString(utils.MakeHMACSign(shakey, metricsJSON))
+		request.Header.Set("HashSHA256", sign)
 	}
 
 	request.Header.Set("Content-Type", "application/json")

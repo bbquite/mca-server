@@ -23,12 +23,14 @@ const (
 	defServerHost     string = "localhost:8080"
 	defReportInterval int    = 10 // частота отправки метрик
 	defPollInterval   int    = 2  // частота опроса метрик
+	defAgentKey       string = "defaultshakey"
 )
 
 type agentConfig struct {
 	Host           string `json:"host"`
 	ReportInterval int    `json:"report_interval"`
 	PollInterval   int    `json:"poll_interval"`
+	Key            string `json:"KEY"`
 }
 
 func initAgentConfigENV(cfg *agentConfig) *agentConfig {
@@ -39,6 +41,10 @@ func initAgentConfigENV(cfg *agentConfig) *agentConfig {
 
 	if envHOST, ok := os.LookupEnv("ADDRESS"); ok {
 		cfg.Host = envHOST
+	}
+
+	if envKEY, ok := os.LookupEnv("KEY"); ok {
+		cfg.Key = envKEY
 	}
 
 	if envReportInterval, ok := os.LookupEnv("REPORT_INTERVAL"); ok {
@@ -209,6 +215,7 @@ func RunAgent() error {
 	cfgFlags := new(agentConfig)
 
 	flag.StringVar(&cfgFlags.Host, "a", defServerHost, "server host")
+	flag.StringVar(&cfgFlags.Key, "k", defAgentKey, "KEY")
 	flag.IntVar(&cfgFlags.ReportInterval, "r", defReportInterval, "reportInterval")
 	flag.IntVar(&cfgFlags.PollInterval, "p", defPollInterval, "pollInterval")
 	flag.Parse()
@@ -240,8 +247,8 @@ func RunAgent() error {
 
 		case <-reportTicker.C:
 			// err := handlers.MetricsURIRequest(agentServices, cfg.Host, agentLogger)
-			// err := handlers.MetricsJSONRequest(agentServices, cfg.Host, agentLogger)
-			err := handlers.MetricsPackJSONRequest(agentServices, cfg.Host, agentLogger)
+			// err := handlers.MetricsJSONRequest(agentServices, cfg.Host, cfg.Key, agentLogger)
+			err := handlers.MetricsPackJSONRequest(agentServices, cfg.Host, cfg.Key, agentLogger)
 			if err != nil {
 				agentLogger.Errorf("Falied to make request: \n%v", err)
 			}
