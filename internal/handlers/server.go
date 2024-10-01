@@ -117,7 +117,7 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	case "gauge":
 		_, err = h.services.AddGaugeItem(metric.ID, model.Gauge(*metric.Value))
 		if err != nil {
-			http.Error(w, "", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			h.logger.Error(err)
 			return
 		}
@@ -125,7 +125,7 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	case "counter":
 		_, err = h.services.AddCounterItem(metric.ID, model.Counter(*metric.Delta))
 		if err != nil {
-			http.Error(w, "", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			h.logger.Error(err)
 			return
 		}

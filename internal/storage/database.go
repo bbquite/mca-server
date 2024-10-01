@@ -8,14 +8,16 @@ import (
 	"time"
 
 	"github.com/bbquite/mca-server/internal/model"
+	"github.com/bbquite/mca-server/pkg/xretry"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type DBStorage struct {
-	Conn *sql.DB
-	ctx  context.Context
+	Conn    *sql.DB
+	ctx     context.Context
+	retrier *xretry.Retrier
 }
 
 func NewDBStorage(ctx context.Context, databaseDSN string) (*DBStorage, error) {
@@ -24,9 +26,15 @@ func NewDBStorage(ctx context.Context, databaseDSN string) (*DBStorage, error) {
 		return &DBStorage{}, err
 	}
 
+	retryPolicy := xretry.NewRetryPolicy(
+		xretry.WithRetriesWithBackoff(3, 1*time.Second, 1.5),
+	)
+	retrier := xretry.NewRetrier(retryPolicy)
+
 	return &DBStorage{
-		Conn: conn,
-		ctx:  ctx,
+		Conn:    conn,
+		ctx:     ctx,
+		retrier: retrier,
 	}, nil
 }
 
@@ -69,11 +77,14 @@ func (storage *DBStorage) CheckDatabaseValid() error {
 }
 
 func (storage *DBStorage) Ping() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	if err := storage.Conn.PingContext(ctx); err != nil {
+
+	retryFunction := func() error { return storage.Conn.PingContext(storage.ctx) }
+
+	err := storage.retrier.Retry(retryFunction)
+	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -95,7 +106,12 @@ func (storage *DBStorage) AddMetricItem(mType string, key string, value any) err
 		`
 	}
 
-	_, err := storage.Conn.ExecContext(storage.ctx, sqlString, mType, key, value)
+	retryFunction := func() error {
+		_, err := storage.Conn.ExecContext(storage.ctx, sqlString, mType, key, value)
+		return err
+	}
+
+	err := storage.retrier.Retry(retryFunction)
 	if err != nil {
 		return err
 	}
@@ -124,14 +140,28 @@ func (storage *DBStorage) GetGaugeItem(key string) (model.Gauge, error) {
 		LIMIT 1
 	`
 
-	row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
-	err := row.Scan(&metric)
+	retryFunction := func() error {
+		row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
+		err := row.Scan(&metric)
+		return err
+	}
+
+	err := storage.retrier.Retry(retryFunction)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, ErrorGaugeNotFound
 		}
 		return 0, err
 	}
+
+	// row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
+	// err := row.Scan(&metric)
+	// if err != nil {
+	// 	if err == sql.ErrNoRows {
+	// 		return 0, ErrorGaugeNotFound
+	// 	}
+	// 	return 0, err
+	// }
 	return metric, nil
 }
 
@@ -148,14 +178,28 @@ func (storage *DBStorage) GetCounterItem(key string) (model.Counter, error) {
 		LIMIT 1
 	`
 
-	row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
-	err := row.Scan(&metric)
+	retryFunction := func() error {
+		row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
+		err := row.Scan(&metric)
+		return err
+	}
+
+	err := storage.retrier.Retry(retryFunction)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, ErrorCounterNotFound
 		}
 		return 0, err
 	}
+
+	// row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
+	// err := row.Scan(&metric)
+	// if err != nil {
+	// 	if err == sql.ErrNoRows {
+	// 		return 0, ErrorCounterNotFound
+	// 	}
+	// 	return 0, err
+	// }
 	return metric, nil
 }
 

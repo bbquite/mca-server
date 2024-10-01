@@ -145,10 +145,12 @@ func (s *server) runHTTPSever(cfg *serverConfig, mux *chi.Mux, service *service.
 		log.Fatalf("Server shutdown failed: %v\n", err)
 	}
 
-	logger.Debugf("Export storage to %s", cfg.FileStoragePath)
-	err := service.SaveToFile(cfg.FileStoragePath)
-	if err != nil {
-		logger.Errorf("error occured while export storage: %v", err)
+	if !cfg.IsDatabaseUsage {
+		logger.Debugf("Export storage to %s", cfg.FileStoragePath)
+		err := service.SaveToFile(cfg.FileStoragePath)
+		if err != nil {
+			logger.Errorf("error occured while export storage: %v", err)
+		}
 	}
 
 	logger.Info("Server shutdown gracefully")

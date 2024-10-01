@@ -61,6 +61,7 @@ func NewRetrier(p RetryPolicy) *Retrier {
 
 // Retry will retry the given function
 func (r *Retrier) Retry(f func() error) error {
+
 	// err := immediatelyRetry(f, r.p.immediateRetries)
 	// if err != nil {
 	// 	err = retryWithBackoff(f, r.p.retriesWithBackoff, r.p.delay, r.p.backoffFactor)
