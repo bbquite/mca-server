@@ -198,16 +198,8 @@ func (s *MetricService) ImportFromJSON(data []byte) error {
 		return err
 	}
 
-	// err = s.store.AddMetricsPack(&metricStruct)
-	// if err != nil {
-	// 	return err
-	// }
-
 	if s.isDatabaseUsage {
-		err := s.store.AddMetricsPack(&metricStruct)
-		if err != nil {
-			return err
-		}
+		s.store.AddMetricsPack(&metricStruct)
 		return nil
 	}
 
