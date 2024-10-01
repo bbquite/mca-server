@@ -23,7 +23,7 @@ const (
 	defServerHost     string = "localhost:8080"
 	defReportInterval int    = 10 // частота отправки метрик
 	defPollInterval   int    = 2  // частота опроса метрик
-	defAgentKey       string = "defaultshakey"
+	defAgentKey       string = ""
 )
 
 type agentConfig struct {

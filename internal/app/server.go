@@ -27,7 +27,7 @@ const (
 	defFileStoragePath string = "backup.json"
 	defRestore         bool   = true
 	defDatabase        string = ""
-	defKey             string = "defaultshakey"
+	defKey             string = ""
 )
 
 type serverConfig struct {
