@@ -198,34 +198,34 @@ func (s *MetricService) ImportFromJSON(data []byte) error {
 		return err
 	}
 
-	err = s.store.AddMetricsPack(&metricStruct)
-	if err != nil {
-		return err
+	// err = s.store.AddMetricsPack(&metricStruct)
+	// if err != nil {
+	// 	return err
+	// }
+
+	if s.isDatabaseUsage {
+		err := s.store.AddMetricsPack(&metricStruct)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
-	// if s.isDatabaseUsage {
-	// 	err := s.store.AddMetricsPack(&metricStruct)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	return nil
-	// }
+	for _, element := range metricStruct {
+		switch element.MType {
+		case "gauge":
+			_, err = s.AddGaugeItem(element.ID, model.Gauge(*element.Value))
+			if err != nil {
+				return err
+			}
 
-	// for _, element := range metricStruct {
-	// 	switch element.MType {
-	// 	case "gauge":
-	// 		_, err = s.AddGaugeItem(element.ID, model.Gauge(*element.Value))
-	// 		if err != nil {
-	// 			return err
-	// 		}
-
-	// 	case "counter":
-	// 		_, err = s.AddCounterItem(element.ID, model.Counter(*element.Delta))
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
+		case "counter":
+			_, err = s.AddCounterItem(element.ID, model.Counter(*element.Delta))
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
