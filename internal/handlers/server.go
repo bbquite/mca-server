@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"html/template"
@@ -12,6 +13,8 @@ import (
 	"github.com/bbquite/mca-server/internal/middleware"
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/storage"
+	"github.com/bbquite/mca-server/internal/utils"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
@@ -23,9 +26,10 @@ type Handler struct {
 	services      *service.MetricService
 	indexTemplate *template.Template
 	logger        *zap.SugaredLogger
+	shaKey        string
 }
 
-func NewHandler(services *service.MetricService, logger *zap.SugaredLogger) (*Handler, error) {
+func NewHandler(services *service.MetricService, shaKey string, logger *zap.SugaredLogger) (*Handler, error) {
 	tml, err := template.New("indexTemplate").Parse(htmlTemplateEmbed)
 	if err != nil {
 		return &Handler{}, err
@@ -35,6 +39,7 @@ func NewHandler(services *service.MetricService, logger *zap.SugaredLogger) (*Ha
 		services:      services,
 		indexTemplate: tml,
 		logger:        logger,
+		shaKey:        shaKey,
 	}, nil
 }
 
@@ -42,11 +47,12 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
 
 	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
+	// chiRouter.Use(chiMiddleware.Logger)
 	chiRouter.Use(middleware.GzipMiddleware)
 
 	chiRouter.Route("/", func(r chi.Router) {
 		r.Get("/", h.renderMetricsPage)
-		r.Get("/ping/", h.databasePing)
+		r.Get("/ping", h.databasePing)
 		r.Route("/value/", func(r chi.Router) {
 			r.Post("/", h.valueMetricJSON)
 			r.Get("/{m_type}/{m_name}", h.valueMetricURI)
@@ -55,20 +61,53 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 			r.Post("/", h.updateMetricJSON)
 			r.Post("/{m_type}/{m_name}/{m_value}", h.updateMetricURI)
 		})
+		r.Post("/updates/", h.updatePackMetricsJSON)
 	})
 
 	return chiRouter
 }
 
 func (h *Handler) databasePing(w http.ResponseWriter, r *http.Request) {
-	h.logger.Info("DB PING")
+	w.Header().Set("Content-type", "text/plain")
+	err := h.services.PingDatabase()
+	if err != nil {
+		h.logger.Debug(err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 
-	// ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	// defer cancel()
-	// if err := h.db.PingContext(ctx); err != nil {
-	// 	h.logger.Debug(err)
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// }
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) {
+	var buf bytes.Buffer
+
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if h.shaKey != "" {
+		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			h.logger.Error(err)
+		}
+		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
+			h.logger.Info("Норм подпись")
+		} else {
+			h.logger.Info("Подпись не оч")
+		}
+	}
+
+	h.logger.Debugf("| req %s", buf.Bytes())
+
+	err = h.services.ImportFromJSON(buf.Bytes())
+	if err != nil {
+		h.logger.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -83,6 +122,19 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.shaKey != "" {
+		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			h.logger.Error(err)
+		}
+		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
+			h.logger.Info("Норм подпись")
+		} else {
+			h.logger.Info("Подпись не оч")
+		}
+	}
+
 	h.logger.Debugf("| req %s", buf.Bytes())
 
 	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
@@ -95,7 +147,7 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	case "gauge":
 		_, err = h.services.AddGaugeItem(metric.ID, model.Gauge(*metric.Value))
 		if err != nil {
-			http.Error(w, "", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			h.logger.Error(err)
 			return
 		}
@@ -103,7 +155,7 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	case "counter":
 		_, err = h.services.AddCounterItem(metric.ID, model.Counter(*metric.Delta))
 		if err != nil {
-			http.Error(w, "", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			h.logger.Error(err)
 			return
 		}
@@ -176,8 +228,9 @@ func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Encoding", "gzip")
 	data, err := h.services.ExportToJSON()
 	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		h.logger.Error(err)
+		return
 	}
 
 	var tmplContext map[string]interface{}
@@ -204,6 +257,19 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.shaKey != "" {
+		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			h.logger.Error(err)
+		}
+		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
+			h.logger.Info("Норм подпись")
+		} else {
+			h.logger.Info("Подпись не оч")
+		}
+	}
+
 	h.logger.Debugf("| req %s", buf.Bytes())
 
 	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
@@ -215,7 +281,8 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 	case "gauge":
 		metricGaugeValue, err = h.services.GetGaugeItem(metric.ID)
 		if err != nil {
-			if !errors.Is(err, service.ErrorGaugeNotFound) {
+			h.logger.Debug(err)
+			if !errors.Is(err, storage.ErrorGaugeNotFound) {
 				http.Error(w, "", http.StatusInternalServerError)
 				h.logger.Error(err)
 				return
@@ -236,7 +303,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 	case "counter":
 		metricCounterValue, err = h.services.GetCounterItem(metric.ID)
 		if err != nil {
-			if !errors.Is(err, service.ErrorCounterNotFound) {
+			if !errors.Is(err, storage.ErrorCounterNotFound) {
 				http.Error(w, "", http.StatusInternalServerError)
 				h.logger.Error(err)
 				return
@@ -279,7 +346,7 @@ func (h *Handler) valueMetricURI(w http.ResponseWriter, r *http.Request) {
 	case "gauge":
 
 		value, err := h.services.GetGaugeItem(mName)
-		if errors.Is(err, service.ErrorGaugeNotFound) {
+		if errors.Is(err, storage.ErrorGaugeNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -295,7 +362,7 @@ func (h *Handler) valueMetricURI(w http.ResponseWriter, r *http.Request) {
 	case "counter":
 
 		value, err := h.services.GetCounterItem(mName)
-		if errors.Is(err, service.ErrorCounterNotFound) {
+		if errors.Is(err, storage.ErrorCounterNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}

@@ -54,11 +54,11 @@ func RequestsLoggingMiddleware(logger *zap.SugaredLogger) func(http.Handler) htt
 
 			logger.Infoln(
 				"method", r.Method,
-				"headers", r.Header,
 				"status", responseData.status,
 				"uri", r.RequestURI,
 				"size", responseData.size,
 				"duration", duration,
+				"\nheaders", r.Header,
 			)
 		})
 	}

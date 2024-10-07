@@ -2,132 +2,140 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
-	"log"
 	"os"
 
 	"github.com/bbquite/mca-server/internal/model"
-)
-
-var (
-	ErrorAddingGauge   = errors.New("no gauge value added")
-	ErrorAddingCounter = errors.New("no counter value added")
-
-	ErrorGaugeNotFound   = errors.New("gauge not found")
-	ErrorCounterNotFound = errors.New("counters not found")
-	ErrorGettingMetrics  = errors.New("error getting metrics")
+	"github.com/bbquite/mca-server/internal/utils"
+	"go.uber.org/zap"
 )
 
 type MemStorageRepo interface {
-	AddGaugeItem(key string, value model.Gauge) bool
-	AddCounterItem(key string, value model.Counter) bool
+	AddGaugeItem(key string, value model.Gauge) error
+	AddCounterItem(key string, value model.Counter) error
 
-	GetGaugeItem(key string) (model.Gauge, bool)
-	GetCounterItem(key string) (model.Counter, bool)
-	ResetCounterItem(key string) bool
+	AddMetricsPack(metrics *model.MetricsPack) error
 
-	GetGaugeItems() (map[string]model.Gauge, bool)
-	GetCounterItems() (map[string]model.Counter, bool)
+	GetGaugeItem(key string) (model.Gauge, error)
+	GetCounterItem(key string) (model.Counter, error)
+	ResetCounterItem(key string) error
 
-	GetStringGaugeItems() (map[string]string, bool)
-	GetStringCounterItems() (map[string]string, bool)
+	GetGaugeItems() (map[string]model.Gauge, error)
+	GetCounterItems() (map[string]model.Counter, error)
+
+	Ping() error
 }
 
 type MetricService struct {
-	store    MemStorageRepo
-	syncSave bool
-	filePath string
+	store           MemStorageRepo
+	syncSave        bool
+	filePath        string
+	isDatabaseUsage bool
+	logger          *zap.SugaredLogger
 }
 
-func NewMetricService(store MemStorageRepo, syncSave bool, filePath string) *MetricService {
+func NewMetricService(store MemStorageRepo, syncSave bool, isDatabaseUsage bool, filePath string) (*MetricService, error) {
+
+	logger, err := utils.InitLogger()
+	if err != nil {
+		return nil, err
+	}
+
 	return &MetricService{
-		store:    store,
-		syncSave: syncSave,
-		filePath: filePath,
-	}
+		store:           store,
+		syncSave:        syncSave,
+		filePath:        filePath,
+		isDatabaseUsage: isDatabaseUsage,
+		logger:          logger,
+	}, nil
 }
 
-func (h *MetricService) AddGaugeItem(key string, value model.Gauge) (model.Gauge, error) {
-	if ok := h.store.AddGaugeItem(key, value); ok {
-		if h.syncSave {
-			h.SaveToFile(h.filePath)
+func (s *MetricService) PingDatabase() error {
+	err := s.store.Ping()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *MetricService) AddGaugeItem(key string, value model.Gauge) (model.Gauge, error) {
+	err := s.store.AddGaugeItem(key, value)
+	if err != nil {
+		return 0, err
+	}
+
+	if s.syncSave {
+		err = s.SaveToFile(s.filePath)
+		if err != nil {
+			s.logger.Error(err)
 		}
-		return model.Gauge(value), nil
 	}
-	return 0, ErrorAddingGauge
+	return model.Gauge(value), nil
 }
 
-func (h *MetricService) AddCounterItem(key string, value model.Counter) (model.Counter, error) {
-	if ok := h.store.AddCounterItem(key, value); ok {
-		if h.syncSave {
-			h.SaveToFile(h.filePath)
+func (s *MetricService) AddCounterItem(key string, value model.Counter) (model.Counter, error) {
+	err := s.store.AddCounterItem(key, value)
+	if err != nil {
+		return 0, err
+	}
+
+	if s.syncSave {
+		err = s.SaveToFile(s.filePath)
+		if err != nil {
+			s.logger.Error(err)
 		}
-		return model.Counter(value), nil
 	}
-	return 0, ErrorAddingCounter
+	return model.Counter(value), nil
 }
 
-func (h *MetricService) GetGaugeItem(key string) (model.Gauge, error) {
-	if gauge, ok := h.store.GetGaugeItem(key); ok {
-		return gauge, nil
+func (s *MetricService) GetGaugeItem(key string) (model.Gauge, error) {
+	item, err := s.store.GetGaugeItem(key)
+	if err != nil {
+		return 0, err
 	}
-	return 0, ErrorGaugeNotFound
+
+	return item, nil
 }
 
-func (h *MetricService) GetCounterItem(key string) (model.Counter, error) {
-	if counter, ok := h.store.GetCounterItem(key); ok {
-		return counter, nil
+func (s *MetricService) GetCounterItem(key string) (model.Counter, error) {
+	item, err := s.store.GetCounterItem(key)
+	if err != nil {
+		return 0, err
 	}
-	return 0, ErrorCounterNotFound
+
+	return item, nil
 }
 
-func (h *MetricService) ResetCounterItem(key string) error {
-	if ok := h.store.ResetCounterItem(key); ok {
-		return nil
+func (s *MetricService) ResetCounterItem(key string) error {
+	err := s.store.ResetCounterItem(key)
+	if err != nil {
+		return err
 	}
-	return ErrorCounterNotFound
+	return nil
 }
 
-func (h *MetricService) GetGaugeItems() (map[string]model.Gauge, error) {
-	if result, ok := h.store.GetGaugeItems(); ok {
-		return result, nil
+func (s *MetricService) GetGaugeItems() (map[string]model.Gauge, error) {
+	items, err := s.store.GetGaugeItems()
+	if err != nil {
+		return map[string]model.Gauge{}, err
 	}
-	return map[string]model.Gauge{}, ErrorGettingMetrics
+
+	return items, nil
 }
 
-func (h *MetricService) GetCounterItems() (map[string]model.Counter, error) {
-	if result, ok := h.store.GetCounterItems(); ok {
-		return result, nil
+func (s *MetricService) GetCounterItems() (map[string]model.Counter, error) {
+
+	items, err := s.store.GetCounterItems()
+	if err != nil {
+		return map[string]model.Counter{}, err
 	}
-	return map[string]model.Counter{}, ErrorGettingMetrics
+
+	return items, nil
 }
 
-func (h *MetricService) GetStringGaugeItems() (map[string]string, error) {
-	result, err := h.store.GetStringGaugeItems()
-	if !err {
-		return map[string]string{}, ErrorGettingMetrics
-	}
-	return result, nil
-}
+func (s *MetricService) GetAllMetrics() (model.MetricsPack, error) {
+	var metricResult model.MetricsPack
 
-func (h *MetricService) GetStringCounterItems() (map[string]string, error) {
-	result, err := h.store.GetStringCounterItems()
-	if !err {
-		return map[string]string{}, ErrorGettingMetrics
-	}
-	return result, nil
-}
-
-type metricsBackup struct {
-	Metrics []model.Metric `json:"metrics"`
-}
-
-func (h *MetricService) ExportToJSON() ([]byte, error) {
-
-	var metricOut metricsBackup
-
-	counter, err := h.GetCounterItems()
+	counter, err := s.GetCounterItems()
 	if err != nil {
 		return nil, err
 	}
@@ -140,13 +148,13 @@ func (h *MetricService) ExportToJSON() ([]byte, error) {
 			Delta: &metricValue,
 		}
 
-		metricOut.Metrics = append(metricOut.Metrics, metric)
+		metricResult = append(metricResult, metric)
 
 	}
 
-	gauge, err := h.GetGaugeItems()
+	gauge, err := s.GetGaugeItems()
 	if err != nil {
-		return nil, err
+		return metricResult, err
 	}
 
 	for key, value := range gauge {
@@ -158,47 +166,61 @@ func (h *MetricService) ExportToJSON() ([]byte, error) {
 			Value: &metricValue,
 		}
 
-		metricOut.Metrics = append(metricOut.Metrics, metric)
+		metricResult = append(metricResult, metric)
 	}
 
-	metricsJSON, err := json.Marshal(metricOut)
+	return metricResult, nil
+}
+
+func (s *MetricService) ExportToJSON() ([]byte, error) {
+
+	metricsPack, err := s.GetAllMetrics()
 	if err != nil {
-		return nil, fmt.Errorf("err: %v", err)
+		return nil, err
+	}
+
+	metricsJSON, err := json.Marshal(metricsPack)
+	if err != nil {
+		return nil, err
 	}
 
 	return metricsJSON, nil
 }
 
-func (h *MetricService) ImportFromJSON(data []byte) error {
-	var metricStruct metricsBackup
+func (s *MetricService) ImportFromJSON(data []byte) error {
+	var metricStruct model.MetricsPack
 
 	err := json.Unmarshal(data, &metricStruct)
 	if err != nil {
 		return err
 	}
 
-	for _, element := range metricStruct.Metrics {
+	if s.isDatabaseUsage {
+		s.store.AddMetricsPack(&metricStruct)
+		return nil
+	}
+
+	for _, element := range metricStruct {
 		switch element.MType {
 		case "gauge":
-			_, err = h.AddGaugeItem(element.ID, model.Gauge(*element.Value))
+			_, err = s.AddGaugeItem(element.ID, model.Gauge(*element.Value))
 			if err != nil {
 				return err
 			}
 
 		case "counter":
-			_, err = h.AddCounterItem(element.ID, model.Counter(*element.Delta))
+			_, err = s.AddCounterItem(element.ID, model.Counter(*element.Delta))
 			if err != nil {
 				return err
 			}
 		}
 	}
-
 	return nil
 }
 
-func (h *MetricService) SaveToFile(filePath string) error {
-	data, err := h.ExportToJSON()
-	log.Printf("save data: %s", data)
+func (s *MetricService) SaveToFile(filePath string) error {
+	data, err := s.ExportToJSON()
+	s.logger.Infof("save data: %s", data)
 	if err != nil {
 		return err
 	}
@@ -207,13 +229,13 @@ func (h *MetricService) SaveToFile(filePath string) error {
 	return nil
 }
 
-func (h *MetricService) LoadFromFile(filePath string) error {
+func (s *MetricService) LoadFromFile(filePath string) error {
 	data, err := os.ReadFile(filePath)
-	log.Printf("load data: %s", data)
+	s.logger.Infof("load data: %s", data)
 	if err != nil {
 		return err
 	}
-	if err := h.ImportFromJSON(data); err != nil {
+	if err := s.ImportFromJSON(data); err != nil {
 		return err
 	}
 	return nil

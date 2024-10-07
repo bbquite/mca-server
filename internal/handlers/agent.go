@@ -2,276 +2,106 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
-	"math/rand"
 	"net/http"
-	"runtime"
-	"strconv"
-	"time"
 
-	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
+	"github.com/bbquite/mca-server/internal/utils"
 	"go.uber.org/zap"
 )
 
-func MetricsCollect(memStat *runtime.MemStats, services *service.MetricService, logger *zap.SugaredLogger) {
+func SendMetricsURI(services *service.MetricService, host string, logger *zap.SugaredLogger) error {
 
-	logger.Info("collecting metrics")
-	runtime.ReadMemStats(memStat)
-
-	_, err := services.AddGaugeItem("Alloc", model.Gauge(memStat.Alloc))
-	if err != nil {
-		logger.Errorf("metric saving error: Alloc = %v", memStat.Alloc)
-	}
-
-	_, err = services.AddGaugeItem("BuckHashSys", model.Gauge(memStat.BuckHashSys))
-	if err != nil {
-		logger.Errorf("metric saving error: BuckHashSys = %v", memStat.BuckHashSys)
-	}
-
-	_, err = services.AddGaugeItem("Frees", model.Gauge(memStat.Frees))
-	if err != nil {
-		logger.Errorf("metric saving error: Frees = %v", memStat.Frees)
-	}
-
-	_, err = services.AddGaugeItem("GCCPUFraction", model.Gauge(memStat.GCCPUFraction))
-	if err != nil {
-		logger.Errorf("metric saving error: Alloc = %v", memStat.GCCPUFraction)
-	}
-
-	_, err = services.AddGaugeItem("GCSys", model.Gauge(memStat.GCSys))
-	if err != nil {
-		logger.Errorf("metric saving error: GCSys = %v", memStat.GCSys)
-	}
-
-	_, err = services.AddGaugeItem("HeapAlloc", model.Gauge(memStat.HeapAlloc))
-	if err != nil {
-		logger.Errorf("metric saving error: HeapAlloc = %v", memStat.HeapAlloc)
-	}
-
-	_, err = services.AddGaugeItem("HeapIdle", model.Gauge(memStat.HeapIdle))
-	if err != nil {
-		logger.Errorf("metric saving error: HeapIdle = %v", memStat.HeapIdle)
-	}
-
-	_, err = services.AddGaugeItem("HeapInuse", model.Gauge(memStat.HeapInuse))
-	if err != nil {
-		logger.Errorf("metric saving error: HeapInuse = %v", memStat.HeapInuse)
-	}
-
-	_, err = services.AddGaugeItem("HeapObjects", model.Gauge(memStat.HeapObjects))
-	if err != nil {
-		logger.Errorf("metric saving error: HeapObjects = %v", memStat.HeapObjects)
-	}
-
-	_, err = services.AddGaugeItem("HeapReleased", model.Gauge(memStat.HeapReleased))
-	if err != nil {
-		logger.Errorf("metric saving error: HeapReleased = %v", memStat.HeapReleased)
-	}
-
-	_, err = services.AddGaugeItem("HeapSys", model.Gauge(memStat.HeapSys))
-	if err != nil {
-		logger.Errorf("metric saving error: HeapSys = %v", memStat.HeapSys)
-	}
-
-	_, err = services.AddGaugeItem("LastGC", model.Gauge(memStat.LastGC))
-	if err != nil {
-		logger.Errorf("metric saving error: LastGC = %v", memStat.LastGC)
-	}
-
-	_, err = services.AddGaugeItem("Lookups", model.Gauge(memStat.Lookups))
-	if err != nil {
-		logger.Errorf("metric saving error: Lookups = %v", memStat.Lookups)
-	}
-
-	_, err = services.AddGaugeItem("MCacheInuse", model.Gauge(memStat.MCacheInuse))
-	if err != nil {
-		logger.Errorf("metric saving error: MCacheInuse = %v", memStat.MCacheInuse)
-	}
-
-	_, err = services.AddGaugeItem("MCacheSys", model.Gauge(memStat.MCacheSys))
-	if err != nil {
-		logger.Errorf("metric saving error: MCacheSys = %v", memStat.MCacheSys)
-	}
-
-	_, err = services.AddGaugeItem("MSpanInuse", model.Gauge(memStat.MSpanInuse))
-	if err != nil {
-		logger.Errorf("metric saving error: MSpanInuse = %v", memStat.MSpanInuse)
-	}
-
-	_, err = services.AddGaugeItem("MSpanSys", model.Gauge(memStat.MSpanSys))
-	if err != nil {
-		logger.Errorf("metric saving error: MSpanSys = %v", memStat.MSpanSys)
-	}
-
-	_, err = services.AddGaugeItem("Mallocs", model.Gauge(memStat.Mallocs))
-	if err != nil {
-		logger.Errorf("metric saving error: Mallocs = %v", memStat.Mallocs)
-	}
-
-	_, err = services.AddGaugeItem("NextGC", model.Gauge(memStat.NextGC))
-	if err != nil {
-		logger.Errorf("metric saving error: NextGC = %v", memStat.NextGC)
-	}
-
-	_, err = services.AddGaugeItem("NumForcedGC", model.Gauge(memStat.NumForcedGC))
-	if err != nil {
-		logger.Errorf("metric saving error: NumForcedGC = %v", memStat.NumForcedGC)
-	}
-
-	_, err = services.AddGaugeItem("NumGC", model.Gauge(memStat.NumGC))
-	if err != nil {
-		logger.Errorf("metric saving error: NumGC = %v", memStat.NumGC)
-	}
-
-	_, err = services.AddGaugeItem("OtherSys", model.Gauge(memStat.OtherSys))
-	if err != nil {
-		logger.Errorf("metric saving error: OtherSys = %v", memStat.OtherSys)
-	}
-
-	_, err = services.AddGaugeItem("PauseTotalNs", model.Gauge(memStat.PauseTotalNs))
-	if err != nil {
-		logger.Errorf("metric saving error: PauseTotalNs = %v", memStat.PauseTotalNs)
-	}
-
-	_, err = services.AddGaugeItem("StackInuse", model.Gauge(memStat.StackInuse))
-	if err != nil {
-		logger.Errorf("metric saving error: StackInuse = %v", memStat.StackInuse)
-	}
-
-	_, err = services.AddGaugeItem("StackSys", model.Gauge(memStat.StackSys))
-	if err != nil {
-		logger.Errorf("metric saving error: StackSys = %v", memStat.StackSys)
-	}
-
-	_, err = services.AddGaugeItem("Sys", model.Gauge(memStat.Sys))
-	if err != nil {
-		logger.Errorf("metric saving error: NextGC = %v", memStat.Sys)
-	}
-
-	_, err = services.AddGaugeItem("TotalAlloc", model.Gauge(memStat.TotalAlloc))
-	if err != nil {
-		logger.Errorf("metric saving error: NextGC = %v", memStat.TotalAlloc)
-	}
-
-	rndValue := rand.Intn(100)
-	_, err = services.AddGaugeItem("RandomValue", model.Gauge(rndValue))
-	if err != nil {
-		logger.Errorf("metric saving error: RandomValue = %v", rndValue)
-	}
-
-	_, err = services.AddCounterItem("PollCount", model.Counter(1))
-	if err != nil {
-		logger.Errorf("metric saving error: PollCount")
-	}
-}
-
-func MetricsURIRequest(services *service.MetricService, host string) error {
 	var url string
+	var value any
+	client := http.Client{}
 
-	log.Printf("INFO | Sending metrics to %s", host)
-
-	client := http.Client{
-		Timeout: time.Second * 1,
-	}
-
-	gauge, err := services.GetStringGaugeItems()
+	metricsPack, err := services.GetAllMetrics()
 	if err != nil {
-		return fmt.Errorf("gauge metrics collection error: %v", err)
+		return err
 	}
-	for key, value := range gauge {
-		url = fmt.Sprintf("http://%s/update/%s/%s/%s", host, "gauge", key, value)
 
-		request, _ := http.NewRequest(http.MethodPost, url, http.NoBody)
+	logger.Infof("Sending metrics to %s", host)
+
+	err = services.ResetCounterItem("PollCount")
+	if err != nil {
+		logger.Errorf("PollCount reset error")
+	}
+
+	for _, el := range metricsPack {
+		switch el.MType {
+		case "gauge":
+			value = fmt.Sprintf("%.2f", *el.Value)
+		case "counter":
+			value = fmt.Sprintf("%v", *el.Delta)
+		}
+
+		url = fmt.Sprintf("http://%s/update/%s/%s/%s", host, el.MType, el.ID, value)
+
+		logger.Debugf("SEND %s", url)
+
+		request, err := http.NewRequest(http.MethodPost, url, http.NoBody)
+		if err != nil {
+			logger.Error(err)
+			return nil
+		}
+
 		request.Header.Set("Content-Type", "Content-Type: text/plain")
 
 		response, err := client.Do(request)
 		if err != nil {
-			log.Printf("clent request error: %v", err)
+			logger.Error(err)
 			return nil
 		}
 
 		err = response.Body.Close()
 		if err != nil {
-			return err
-		}
-
-		if response.StatusCode != 200 {
-			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
-		}
-	}
-
-	counter, err := services.GetStringCounterItems()
-	if err != nil {
-		return fmt.Errorf("counter metrics collecting error: %v", err)
-	}
-	for key, value := range counter {
-		url = fmt.Sprintf("http://%s/update/%s/%s/%s", host, "counter", key, value)
-
-		request, _ := http.NewRequest(http.MethodPost, url, http.NoBody)
-		request.Header.Set("Content-Type", "Content-Type: text/plain")
-
-		response, err := client.Do(request)
-		if err != nil {
-			log.Printf("clent request error: %v", err)
+			logger.Error(err)
 			return nil
-		}
-
-		err = response.Body.Close()
-		if err != nil {
-			return err
-		}
-
-		if response.StatusCode != 200 {
-			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
 		}
 	}
 
 	return nil
 }
 
-func MetricsJSONRequest(services *service.MetricService, host string, logger *zap.SugaredLogger) error {
+func SendMetricsJSON(services *service.MetricService, host string, shakey string, logger *zap.SugaredLogger) error {
 
 	url := fmt.Sprintf("http://%s/update/", host)
 	client := http.Client{}
 
-	counter, err := services.GetStringCounterItems()
-	logger.Infof("sending counter metrics")
+	metricsPack, err := services.GetAllMetrics()
 	if err != nil {
-		return fmt.Errorf("counter metrics sending error: %v", err)
+		return err
 	}
 
-	for key, value := range counter {
-		metricValue, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			return fmt.Errorf("parse int err: %v", err)
-		}
+	logger.Infof("Sending metrics to %s", host)
 
-		metric := model.Metric{
-			ID:    key,
-			MType: "counter",
-			Delta: &metricValue,
-		}
+	for _, el := range metricsPack {
 
-		body, err := json.Marshal(metric)
+		body, err := json.Marshal(el)
 		if err != nil {
-			return fmt.Errorf("err: %v", err)
+			logger.Error(err)
+			return err
 		}
 
 		bodySend := bytes.NewBuffer(body)
-
 		request, err := http.NewRequest(http.MethodPost, url, bodySend)
 		if err != nil {
 			logger.Error(err)
 			return err
 		}
 
+		if shakey != "" {
+			sign := hex.EncodeToString(utils.MakeHMACSign(shakey, body))
+			request.Header.Set("HashSHA256", sign)
+		}
+
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("Accept-Encoding", "gzip")
 
-		logger.Debugf("TRY %s %s", url, request.Body)
+		logger.Debugf("SEND %s %s", url, request.Body)
 
 		response, err := client.Do(request)
 		if err != nil {
@@ -280,11 +110,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		}
 
 		defer response.Body.Close()
-		logger.Debugf("OK %s %s", url, response.Status)
-
-		if response.StatusCode != 200 {
-			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
-		}
+		logger.Debugf("RESP %s %s", url, response.Status)
 	}
 
 	err = services.ResetCounterItem("PollCount")
@@ -292,56 +118,48 @@ func MetricsJSONRequest(services *service.MetricService, host string, logger *za
 		logger.Errorf("PollCount reset error")
 	}
 
-	gauge, err := services.GetStringGaugeItems()
-	logger.Infof("sending gauge metrics")
+	return nil
+}
+
+func SendMetricsPackJSON(services *service.MetricService, host string, shakey string, logger *zap.SugaredLogger) error {
+	url := fmt.Sprintf("http://%s/updates/", host)
+	client := http.Client{}
+
+	metricsJSON, err := services.ExportToJSON()
 	if err != nil {
-		return fmt.Errorf("gauge metrics sending error: %v", err)
+		logger.Error(err)
+		return err
+	}
+	bodySend := bytes.NewBuffer(metricsJSON)
+
+	request, err := http.NewRequest(http.MethodPost, url, bodySend)
+	if err != nil {
+		logger.Error(err)
+		return err
 	}
 
-	for key, value := range gauge {
+	if shakey != "" {
+		sign := hex.EncodeToString(utils.MakeHMACSign(shakey, metricsJSON))
+		request.Header.Set("HashSHA256", sign)
+	}
 
-		metricValue, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("parse float err: %v", err)
-		}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept-Encoding", "gzip")
 
-		metric := model.Metric{
-			ID:    key,
-			MType: "gauge",
-			Value: &metricValue,
-		}
+	logger.Debugf("SEND %s %s", url, request.Body)
 
-		body, err := json.Marshal(metric)
-		if err != nil {
-			logger.Error(err)
-			return nil
-		}
+	response, err := client.Do(request)
+	if err != nil {
+		logger.Error(err)
+		return nil
+	}
 
-		bodySend := bytes.NewBuffer(body)
+	defer response.Body.Close()
+	logger.Debugf("RESP %s %s", url, response.Status)
 
-		request, err := http.NewRequest(http.MethodPost, url, bodySend)
-		if err != nil {
-			logger.Error(err)
-			return err
-		}
-
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Accept-Encoding", "gzip")
-
-		logger.Debugf("TRY %s %s", url, request.Body)
-
-		response, err := client.Do(request)
-		if err != nil {
-			logger.Error(err)
-			return nil
-		}
-
-		defer response.Body.Close()
-		logger.Debugf("OK %s %s", url, response.Status)
-
-		if response.StatusCode != 200 {
-			return fmt.Errorf("bad server response, status code: %d", response.StatusCode)
-		}
+	err = services.ResetCounterItem("PollCount")
+	if err != nil {
+		logger.Errorf("PollCount reset error")
 	}
 
 	return nil
