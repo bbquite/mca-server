@@ -6,8 +6,10 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/bbquite/mca-server/internal/handlers"
@@ -241,18 +243,32 @@ func RunAgent() error {
 
 	memStat := new(runtime.MemStats)
 
-	for {
-		select {
-		case <-pollTicker.C:
-			collectMetrics(memStat, agentServices, agentLogger)
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
-		case <-reportTicker.C:
-			// err := handlers.SendMetricsURI(agentServices, cfg.Host, agentLogger)
-			// err := handlers.SendMetricsJSON(agentServices, cfg.Host, cfg.Key, agentLogger)
-			err := handlers.SendMetricsPackJSON(agentServices, cfg.Host, cfg.Key, agentLogger)
-			if err != nil {
-				agentLogger.Errorf("Falied to make request: \n%v", err)
+	go func() {
+		for {
+			select {
+			case <-pollTicker.C:
+				collectMetrics(memStat, agentServices, agentLogger)
+
+			case <-reportTicker.C:
+				// err := handlers.SendMetricsURI(agentServices, cfg.Host, agentLogger)
+				// err := handlers.SendMetricsJSON(agentServices, cfg.Host, cfg.Key, agentLogger)
+				err := handlers.SendMetricsPackJSON(agentServices, cfg.Host, cfg.Key, agentLogger)
+				if err != nil {
+					agentLogger.Errorf("Falied to make request: \n%v", err)
+				}
 			}
 		}
-	}
+	}()
+
+	sig := <-signalCh
+	agentLogger.Info("Received signal: %v\n", sig)
+
+	pollTicker.Stop()
+	reportTicker.Stop()
+
+	agentLogger.Info("Agent shutdown gracefully")
+	return nil
 }
