@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	_ "embed"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"html/template"
@@ -14,7 +13,6 @@ import (
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
-	"github.com/bbquite/mca-server/internal/utils"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
@@ -47,7 +45,9 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
 
 	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
-	// chiRouter.Use(chiMiddleware.Logger)
+	if h.shaKey != "" {
+		chiRouter.Use(middleware.CheckSignMiddleware(h.shaKey))
+	}
 	chiRouter.Use(middleware.GzipMiddleware)
 
 	chiRouter.Route("/", func(r chi.Router) {
@@ -83,21 +83,9 @@ func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) 
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		h.logger.Debug(err)
+		w.WriteHeader(http.StatusBadRequest)
 		return
-	}
-
-	if h.shaKey != "" {
-		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			h.logger.Error(err)
-		}
-		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
-			h.logger.Info("Норм подпись")
-		} else {
-			h.logger.Info("Подпись не оч")
-		}
 	}
 
 	h.logger.Debugf("| req %s", buf.Bytes())
@@ -120,19 +108,6 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	}
-
-	if h.shaKey != "" {
-		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			h.logger.Error(err)
-		}
-		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
-			h.logger.Info("Норм подпись")
-		} else {
-			h.logger.Info("Подпись не оч")
-		}
 	}
 
 	h.logger.Debugf("| req %s", buf.Bytes())
@@ -255,19 +230,6 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	}
-
-	if h.shaKey != "" {
-		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			h.logger.Error(err)
-		}
-		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
-			h.logger.Info("Норм подпись")
-		} else {
-			h.logger.Info("Подпись не оч")
-		}
 	}
 
 	h.logger.Debugf("| req %s", buf.Bytes())
