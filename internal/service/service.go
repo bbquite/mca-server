@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/bbquite/mca-server/internal/model"
@@ -136,11 +135,10 @@ func (s *MetricService) GetCounterItems() (map[string]model.Counter, error) {
 
 func (s *MetricService) GetAllMetrics() (model.MetricsPack, error) {
 	var metricResult model.MetricsPack
-	var ph = metricResult
 
 	counter, err := s.GetCounterItems()
 	if err != nil {
-		return ph, err
+		return nil, err
 	}
 
 	for key, value := range counter {
@@ -157,7 +155,7 @@ func (s *MetricService) GetAllMetrics() (model.MetricsPack, error) {
 
 	gauge, err := s.GetGaugeItems()
 	if err != nil {
-		return ph, err
+		return metricResult, err
 	}
 
 	for key, value := range gauge {
@@ -179,7 +177,7 @@ func (s *MetricService) ExportToJSON() ([]byte, error) {
 
 	metricsPack, err := s.GetAllMetrics()
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	metricsJSON, err := json.Marshal(metricsPack)
@@ -223,7 +221,7 @@ func (s *MetricService) ImportFromJSON(data []byte) error {
 
 func (s *MetricService) SaveToFile(filePath string) error {
 	data, err := s.ExportToJSON()
-	log.Printf("save data: %s", data)
+	s.logger.Infof("save data: %s", data)
 	if err != nil {
 		return err
 	}
@@ -234,7 +232,7 @@ func (s *MetricService) SaveToFile(filePath string) error {
 
 func (s *MetricService) LoadFromFile(filePath string) error {
 	data, err := os.ReadFile(filePath)
-	log.Printf("load data: %s", data)
+	s.logger.Infof("load data: %s", data)
 	if err != nil {
 		return err
 	}

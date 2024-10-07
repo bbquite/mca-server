@@ -23,7 +23,7 @@ type DBStorage struct {
 func NewDBStorage(ctx context.Context, databaseDSN string) (*DBStorage, error) {
 	conn, err := sql.Open("pgx", databaseDSN)
 	if err != nil {
-		return &DBStorage{}, err
+		return nil, err
 	}
 
 	retryPolicy := xretry.NewRetryPolicy(
@@ -89,8 +89,6 @@ func (storage *DBStorage) Ping() error {
 }
 
 func (storage *DBStorage) AddMetricItem(mType string, key string, value any) error {
-	// storage.mx.Lock()
-	// defer storage.mx.Unlock()
 
 	sqlString := `
 		INSERT INTO metrics (metric_type, metric_name, value)
@@ -128,8 +126,6 @@ func (storage *DBStorage) AddCounterItem(key string, value model.Counter) error 
 }
 
 func (storage *DBStorage) GetGaugeItem(key string) (model.Gauge, error) {
-	// storage.mx.RLock()
-	// defer storage.mx.RUnlock()
 
 	var metric model.Gauge
 
@@ -154,20 +150,10 @@ func (storage *DBStorage) GetGaugeItem(key string) (model.Gauge, error) {
 		return 0, err
 	}
 
-	// row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
-	// err := row.Scan(&metric)
-	// if err != nil {
-	// 	if err == sql.ErrNoRows {
-	// 		return 0, ErrorGaugeNotFound
-	// 	}
-	// 	return 0, err
-	// }
 	return metric, nil
 }
 
 func (storage *DBStorage) GetCounterItem(key string) (model.Counter, error) {
-	// storage.mx.RLock()
-	// defer storage.mx.RUnlock()
 
 	var metric model.Counter
 
@@ -192,20 +178,10 @@ func (storage *DBStorage) GetCounterItem(key string) (model.Counter, error) {
 		return 0, err
 	}
 
-	// row := storage.Conn.QueryRowContext(storage.ctx, sqlStringSelect, key)
-	// err := row.Scan(&metric)
-	// if err != nil {
-	// 	if err == sql.ErrNoRows {
-	// 		return 0, ErrorCounterNotFound
-	// 	}
-	// 	return 0, err
-	// }
 	return metric, nil
 }
 
 func (storage *DBStorage) GetGaugeItems() (map[string]model.Gauge, error) {
-	// storage.mx.RLock()
-	// defer storage.mx.RUnlock()
 
 	result := make(map[string]model.Gauge)
 
@@ -240,8 +216,6 @@ func (storage *DBStorage) GetGaugeItems() (map[string]model.Gauge, error) {
 }
 
 func (storage *DBStorage) GetCounterItems() (map[string]model.Counter, error) {
-	// storage.mx.RLock()
-	// defer storage.mx.RUnlock()
 
 	result := make(map[string]model.Counter)
 

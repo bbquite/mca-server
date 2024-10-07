@@ -228,8 +228,9 @@ func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Encoding", "gzip")
 	data, err := h.services.ExportToJSON()
 	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		h.logger.Error(err)
+		return
 	}
 
 	var tmplContext map[string]interface{}

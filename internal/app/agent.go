@@ -240,15 +240,16 @@ func RunAgent() error {
 	reportTicker := time.NewTicker(time.Duration(cfg.ReportInterval) * time.Second)
 
 	memStat := new(runtime.MemStats)
+
 	for {
 		select {
 		case <-pollTicker.C:
 			collectMetrics(memStat, agentServices, agentLogger)
 
 		case <-reportTicker.C:
-			// err := handlers.MetricsURIRequest(agentServices, cfg.Host, agentLogger)
-			// err := handlers.MetricsJSONRequest(agentServices, cfg.Host, cfg.Key, agentLogger)
-			err := handlers.MetricsPackJSONRequest(agentServices, cfg.Host, cfg.Key, agentLogger)
+			// err := handlers.SendMetricsURI(agentServices, cfg.Host, agentLogger)
+			// err := handlers.SendMetricsJSON(agentServices, cfg.Host, cfg.Key, agentLogger)
+			err := handlers.SendMetricsPackJSON(agentServices, cfg.Host, cfg.Key, agentLogger)
 			if err != nil {
 				agentLogger.Errorf("Falied to make request: \n%v", err)
 			}

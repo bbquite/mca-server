@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func MetricsURIRequest(services *service.MetricService, host string, logger *zap.SugaredLogger) error {
+func SendMetricsURI(services *service.MetricService, host string, logger *zap.SugaredLogger) error {
 
 	var url string
 	var value any
@@ -66,7 +66,7 @@ func MetricsURIRequest(services *service.MetricService, host string, logger *zap
 	return nil
 }
 
-func MetricsJSONRequest(services *service.MetricService, host string, shakey string, logger *zap.SugaredLogger) error {
+func SendMetricsJSON(services *service.MetricService, host string, shakey string, logger *zap.SugaredLogger) error {
 
 	url := fmt.Sprintf("http://%s/update/", host)
 	client := http.Client{}
@@ -121,7 +121,7 @@ func MetricsJSONRequest(services *service.MetricService, host string, shakey str
 	return nil
 }
 
-func MetricsPackJSONRequest(services *service.MetricService, host string, shakey string, logger *zap.SugaredLogger) error {
+func SendMetricsPackJSON(services *service.MetricService, host string, shakey string, logger *zap.SugaredLogger) error {
 	url := fmt.Sprintf("http://%s/updates/", host)
 	client := http.Client{}
 
