@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/bbquite/mca-server/internal/model"
@@ -182,7 +181,7 @@ func (s *MetricService) ExportToJSON() ([]byte, error) {
 
 	metricsJSON, err := json.Marshal(metricsPack)
 	if err != nil {
-		return nil, fmt.Errorf("err: %v", err)
+		return nil, err
 	}
 
 	return metricsJSON, nil
