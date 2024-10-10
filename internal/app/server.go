@@ -100,7 +100,7 @@ type server struct {
 	httpServer *http.Server
 }
 
-func (s *server) runHTTPSever(cfg *serverConfig, mux *chi.Mux, service *service.MetricService, logger *zap.SugaredLogger) error {
+func (s *server) runHTTPSever(cfg *serverConfig, mux *chi.Mux, service *service.MetricService, logger *zap.SugaredLogger) {
 
 	s.httpServer = &http.Server{
 		Addr:           cfg.Host,
@@ -159,8 +159,6 @@ func (s *server) runHTTPSever(cfg *serverConfig, mux *chi.Mux, service *service.
 	}
 
 	logger.Info("Server shutdown gracefully")
-
-	return nil
 }
 
 func RunServer() {

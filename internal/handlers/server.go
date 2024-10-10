@@ -83,7 +83,7 @@ func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) 
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -96,7 +96,8 @@ func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) 
 		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
 			h.logger.Info("Норм подпись")
 		} else {
-			h.logger.Info("Подпись не оч")
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 	}
 
@@ -113,12 +114,15 @@ func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) 
 
 func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Encoding", "gzip")
+
 	var metric model.Metric
 	var buf bytes.Buffer
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -131,7 +135,8 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
 			h.logger.Info("Норм подпись")
 		} else {
-			h.logger.Info("Подпись не оч")
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 	}
 
@@ -171,8 +176,6 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error(err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Encoding", "gzip")
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
 	h.logger.Debugf("| resp %s", resp)
@@ -243,6 +246,8 @@ func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 
+	w.Header().Set("Content-Type", "application/json")
+
 	var metric model.Metric
 	var metricResponse model.Metric
 
@@ -253,7 +258,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -266,7 +271,8 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
 			h.logger.Info("Норм подпись")
 		} else {
-			h.logger.Info("Подпись не оч")
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 	}
 
@@ -332,7 +338,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error(err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
 	h.logger.Debugf("| resp %s", resp)
