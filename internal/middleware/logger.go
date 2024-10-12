@@ -58,7 +58,7 @@ func RequestsLoggingMiddleware(logger *zap.SugaredLogger) func(http.Handler) htt
 				"uri", r.RequestURI,
 				"size", responseData.size,
 				"duration", duration,
-				"\nheaders", r.Header,
+				//"headers", r.Header,
 			)
 		})
 	}
