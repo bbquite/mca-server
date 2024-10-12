@@ -26,6 +26,7 @@ const (
 	defReportInterval int    = 10 // частота отправки метрик
 	defPollInterval   int    = 2  // частота опроса метрик
 	defAgentKey       string = ""
+	defRateLimit      int    = 2
 )
 
 type agentConfig struct {
@@ -33,6 +34,7 @@ type agentConfig struct {
 	ReportInterval int    `json:"report_interval"`
 	PollInterval   int    `json:"poll_interval"`
 	Key            string `json:"KEY"`
+	RateLimit      int    `json:"rate_limit"`
 }
 
 func initAgentConfigENV(cfg *agentConfig) *agentConfig {
@@ -55,6 +57,10 @@ func initAgentConfigENV(cfg *agentConfig) *agentConfig {
 
 	if envPollInterval, ok := os.LookupEnv("POLL_INTERVAL"); ok {
 		cfg.PollInterval, _ = strconv.Atoi(envPollInterval)
+	}
+
+	if envRateLimit, ok := os.LookupEnv("RATE_LIMIT"); ok {
+		cfg.PollInterval, _ = strconv.Atoi(envRateLimit)
 	}
 
 	return cfg
@@ -220,6 +226,7 @@ func RunAgent() error {
 	flag.StringVar(&cfgFlags.Key, "k", defAgentKey, "KEY")
 	flag.IntVar(&cfgFlags.ReportInterval, "r", defReportInterval, "reportInterval")
 	flag.IntVar(&cfgFlags.PollInterval, "p", defPollInterval, "pollInterval")
+	flag.IntVar(&cfgFlags.RateLimit, "l", defRateLimit, "rateLimit")
 	flag.Parse()
 
 	cfg := initAgentConfigENV(cfgFlags)
