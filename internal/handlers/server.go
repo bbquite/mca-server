@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	_ "embed"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"html/template"
@@ -14,7 +13,6 @@ import (
 	"github.com/bbquite/mca-server/internal/model"
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
-	"github.com/bbquite/mca-server/internal/utils"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
@@ -49,6 +47,9 @@ func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
 	// chiRouter.Use(chiMiddleware.Logger)
 	chiRouter.Use(middleware.GzipMiddleware)
+	if h.shaKey != "" {
+		chiRouter.Use(middleware.CheckSignMiddleware(h.shaKey))
+	}
 
 	chiRouter.Route("/", func(r chi.Router) {
 		r.Get("/", h.renderMetricsPage)
@@ -74,8 +75,25 @@ func (h *Handler) databasePing(w http.ResponseWriter, r *http.Request) {
 		h.logger.Debug(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.Header().Set("Content-Encoding", "gzip")
+	data, err := h.services.ExportToJSON()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		h.logger.Error(err)
+		return
+	}
+
+	var tmplContext map[string]interface{}
+	if err := json.Unmarshal(data, &tmplContext); err != nil {
+		h.logger.Error(err)
+	}
+
+	h.indexTemplate.Execute(w, tmplContext)
 }
 
 func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) {
@@ -83,33 +101,21 @@ func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) 
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		h.logger.Debug(err)
 		w.WriteHeader(http.StatusBadRequest)
+		h.logger.Debug(err)
 		return
 	}
 
-	if h.shaKey != "" {
-		h.logger.Debugf("header sign: %s", r.Header.Get("HashSHA256"))
-		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			h.logger.Error(err)
-		}
-		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
-			h.logger.Info("Норм подпись")
-		} else {
-			h.logger.Info("Бэд подпись")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	}
-
-	h.logger.Debugf("| req %s", buf.Bytes())
+	h.logger.Debugf(`
+		REQ.BODY: %s
+		REQ.HEADER: %s
+	`, buf.Bytes(), r.Header)
 
 	err = h.services.ImportFromJSON(buf.Bytes())
 	if err != nil {
-		h.logger.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		h.logger.Error(err)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -130,25 +136,13 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.shaKey != "" {
-		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			h.logger.Error(err)
-		}
-		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
-			h.logger.Info("Норм подпись")
-		} else {
-			h.logger.Info("Бэд подпись")
-			//w.WriteHeader(http.StatusBadRequest)
-			//return
-		}
-	}
-
-	h.logger.Debugf("| req %s", buf.Bytes())
+	h.logger.Debugf(`
+		REQ.BODY: %s
+		REQ.HEADER: %s
+	`, buf.Bytes(), r.Header)
 
 	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		h.logger.Info(err)
 		return
 	}
@@ -183,70 +177,11 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
-	h.logger.Debugf("| resp %s", resp)
-}
 
-func (h *Handler) updateMetricURI(w http.ResponseWriter, r *http.Request) {
-	mType := chi.URLParam(r, "m_type")
-	mName := chi.URLParam(r, "m_name")
-	mValue := chi.URLParam(r, "m_value")
-
-	w.Header().Set("Content-type", "text/plain")
-	w.Header().Set("Content-Encoding", "gzip")
-
-	switch mType {
-	case "gauge":
-		metricValue, err := strconv.ParseFloat(mValue, 64)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-
-		_, err = h.services.AddGaugeItem(mName, model.Gauge(metricValue))
-		if err != nil {
-			http.Error(w, "", http.StatusInternalServerError)
-			h.logger.Error(err)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		return
-
-	case "counter":
-		metricValue, err := strconv.ParseInt(mValue, 10, 64)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-
-		_, err = h.services.AddCounterItem(mName, model.Counter(metricValue))
-		if err != nil {
-			http.Error(w, "", http.StatusInternalServerError)
-			h.logger.Error(err)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-	}
-}
-
-func (h *Handler) renderMetricsPage(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-	w.Header().Set("Content-Encoding", "gzip")
-	data, err := h.services.ExportToJSON()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		h.logger.Error(err)
-		return
-	}
-
-	var tmplContext map[string]interface{}
-	if err := json.Unmarshal(data, &tmplContext); err != nil {
-		h.logger.Error(err)
-	}
-
-	h.indexTemplate.Execute(w, tmplContext)
+	h.logger.Debugf(`
+		RESP.BODY: %s
+		RESP.HEADER: %s
+	`, resp, w.Header())
 }
 
 func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
@@ -263,31 +198,19 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		h.logger.Debug(err)
 		w.WriteHeader(http.StatusBadRequest)
+		h.logger.Debug(err)
 		return
 	}
 
-	if h.shaKey != "" {
-		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			h.logger.Error(err)
-		}
-		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
-			h.logger.Info("Норм подпись")
-		} else {
-			h.logger.Info("бэд  подпись")
-			//w.WriteHeader(http.StatusBadRequest)
-			//return
-		}
-	}
-
-	h.logger.Debugf("| req %s", buf.Bytes())
+	h.logger.Debugf(`
+		REQ.BODY: %s
+		REQ.HEADER: %s
+	`, buf.Bytes(), r.Header)
 
 	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
-		h.logger.Debug(err)
 		w.WriteHeader(http.StatusBadRequest)
+		h.logger.Debug(err)
 		return
 	}
 
@@ -297,7 +220,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			h.logger.Debug(err)
 			if !errors.Is(err, storage.ErrorGaugeNotFound) {
-				http.Error(w, "", http.StatusInternalServerError)
+				w.WriteHeader(http.StatusInternalServerError)
 				h.logger.Error(err)
 				return
 			} else {
@@ -349,7 +272,11 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
-	h.logger.Debugf("| resp %s", resp)
+
+	h.logger.Debugf(`
+		RESP.BODY: %s
+		RESP.HEADER: %s
+	`, resp, w.Header())
 }
 
 func (h *Handler) valueMetricURI(w http.ResponseWriter, r *http.Request) {
@@ -392,5 +319,50 @@ func (h *Handler) valueMetricURI(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		return
+	}
+}
+
+func (h *Handler) updateMetricURI(w http.ResponseWriter, r *http.Request) {
+	mType := chi.URLParam(r, "m_type")
+	mName := chi.URLParam(r, "m_name")
+	mValue := chi.URLParam(r, "m_value")
+
+	w.Header().Set("Content-type", "text/plain")
+	w.Header().Set("Content-Encoding", "gzip")
+
+	switch mType {
+	case "gauge":
+		metricValue, err := strconv.ParseFloat(mValue, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+
+		_, err = h.services.AddGaugeItem(mName, model.Gauge(metricValue))
+		if err != nil {
+			http.Error(w, "", http.StatusInternalServerError)
+			h.logger.Error(err)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
+
+	case "counter":
+		metricValue, err := strconv.ParseInt(mValue, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+
+		_, err = h.services.AddCounterItem(mName, model.Counter(metricValue))
+		if err != nil {
+			http.Error(w, "", http.StatusInternalServerError)
+			h.logger.Error(err)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+
+	default:
+		w.WriteHeader(http.StatusBadRequest)
 	}
 }
