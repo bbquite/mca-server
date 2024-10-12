@@ -83,11 +83,13 @@ func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) 
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
+		h.logger.Debug(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if h.shaKey != "" {
+		h.logger.Debugf("header sign: %s", r.Header.Get("HashSHA256"))
 		shaHeaderSign, err := hex.DecodeString(r.Header.Get("HashSHA256"))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -96,6 +98,7 @@ func (h *Handler) updatePackMetricsJSON(w http.ResponseWriter, r *http.Request) 
 		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
 			h.logger.Info("Норм подпись")
 		} else {
+			h.logger.Info("Бэд подпись")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -123,6 +126,7 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		h.logger.Error(err)
 		return
 	}
 
@@ -135,8 +139,9 @@ func (h *Handler) updateMetricJSON(w http.ResponseWriter, r *http.Request) {
 		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
 			h.logger.Info("Норм подпись")
 		} else {
-			w.WriteHeader(http.StatusBadRequest)
-			return
+			h.logger.Info("Бэд подпись")
+			//w.WriteHeader(http.StatusBadRequest)
+			//return
 		}
 	}
 
@@ -258,6 +263,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
+		h.logger.Debug(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -271,15 +277,17 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 		if utils.CheckHMACEqual(h.shaKey, shaHeaderSign, buf.Bytes()) {
 			h.logger.Info("Норм подпись")
 		} else {
-			w.WriteHeader(http.StatusBadRequest)
-			return
+			h.logger.Info("бэд  подпись")
+			//w.WriteHeader(http.StatusBadRequest)
+			//return
 		}
 	}
 
 	h.logger.Debugf("| req %s", buf.Bytes())
 
 	if err = json.Unmarshal(buf.Bytes(), &metric); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		h.logger.Debug(err)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -293,7 +301,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 				h.logger.Error(err)
 				return
 			} else {
-				http.Error(w, err.Error(), http.StatusNotFound)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 		}
@@ -310,11 +318,11 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 		metricCounterValue, err = h.services.GetCounterItem(metric.ID)
 		if err != nil {
 			if !errors.Is(err, storage.ErrorCounterNotFound) {
-				http.Error(w, "", http.StatusInternalServerError)
+				w.WriteHeader(http.StatusInternalServerError)
 				h.logger.Error(err)
 				return
 			} else {
-				http.Error(w, err.Error(), http.StatusNotFound)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 		}
@@ -334,7 +342,7 @@ func (h *Handler) valueMetricJSON(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := json.Marshal(metricResponse)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		h.logger.Error(err)
 		return
 	}

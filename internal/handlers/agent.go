@@ -130,6 +130,7 @@ func SendMetricsPackJSON(services *service.MetricService, host string, shakey st
 		logger.Error(err)
 		return err
 	}
+
 	bodySend := bytes.NewBuffer(metricsJSON)
 
 	request, err := http.NewRequest(http.MethodPost, url, bodySend)
@@ -141,12 +142,13 @@ func SendMetricsPackJSON(services *service.MetricService, host string, shakey st
 	if shakey != "" {
 		sign := hex.EncodeToString(utils.MakeHMACSign(shakey, metricsJSON))
 		request.Header.Set("HashSHA256", sign)
+		logger.Debugf("generate sign: %s", sign)
 	}
 
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept-Encoding", "gzip")
 
-	logger.Debugf("SEND %s %s", url, request.Body)
+	logger.Debugf("SEND %s \n%s\n%s", url, request.Body, request.Header)
 
 	response, err := client.Do(request)
 	if err != nil {
@@ -155,7 +157,7 @@ func SendMetricsPackJSON(services *service.MetricService, host string, shakey st
 	}
 
 	defer response.Body.Close()
-	logger.Debugf("RESP %s %s", url, response.Status)
+	logger.Debugf("RESP %s %s %s", url, response.Status, response.Header)
 
 	err = services.ResetCounterItem("PollCount")
 	if err != nil {
