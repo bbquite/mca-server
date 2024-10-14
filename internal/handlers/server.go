@@ -14,6 +14,7 @@ import (
 	"github.com/bbquite/mca-server/internal/service"
 	"github.com/bbquite/mca-server/internal/storage"
 	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 )
 
@@ -44,8 +45,8 @@ func NewHandler(services *service.MetricService, shaKey string, logger *zap.Suga
 func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
 
-	chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
-	// chiRouter.Use(chiMiddleware.Logger)
+	//chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
+	chiRouter.Use(chiMiddleware.Logger)
 	chiRouter.Use(middleware.GzipMiddleware)
 	if h.shaKey != "" {
 		chiRouter.Use(middleware.CheckSignMiddleware(h.shaKey))

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/bbquite/mca-server/internal/model"
 	"net/http"
 
 	"github.com/bbquite/mca-server/internal/service"
@@ -148,7 +149,62 @@ func SendMetricsPackJSON(services *service.MetricService, host string, shakey st
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept-Encoding", "gzip")
 
-	logger.Debugf("SEND %s \n%s\n%s", url, request.Body, request.Header)
+	logger.Debugf(`
+		SEND.URL: %s
+		SEND.HEADER: %s
+		SEND.BODY: %s
+	`, url, request.Header, request.Body)
+
+	response, err := client.Do(request)
+	if err != nil {
+		logger.Error(err)
+		return nil
+	}
+
+	logger.Debugf(`
+		RESP.URL: %s
+		RESP.STATUS: %s
+		RESP.HEADER: %s
+	`, url, response.Status, response.Header)
+
+	err = services.ResetCounterItem("PollCount")
+	if err != nil {
+		logger.Errorf("PollCount reset error")
+	}
+
+	defer response.Body.Close()
+	return nil
+}
+
+func SendMetric(services *service.MetricService, metric *model.Metric, host string, shakey string, logger *zap.SugaredLogger) error {
+
+	url := fmt.Sprintf("http://%s/update/", host)
+	client := http.Client{}
+
+	logger.Infof("Sending metric to %s", host)
+
+	body, err := json.Marshal(metric)
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+
+	bodySend := bytes.NewBuffer(body)
+	request, err := http.NewRequest(http.MethodPost, url, bodySend)
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+
+	if shakey != "" {
+		sign := hex.EncodeToString(utils.MakeHMACSign(shakey, body))
+		request.Header.Set("HashSHA256", sign)
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept-Encoding", "gzip")
+
+	logger.Debugf("SEND %s %s", url, request.Body)
 
 	response, err := client.Do(request)
 	if err != nil {
@@ -157,7 +213,7 @@ func SendMetricsPackJSON(services *service.MetricService, host string, shakey st
 	}
 
 	defer response.Body.Close()
-	logger.Debugf("RESP %s %s %s", url, response.Status, response.Header)
+	logger.Debugf("RESP %s %s", url, response.Status)
 
 	err = services.ResetCounterItem("PollCount")
 	if err != nil {
