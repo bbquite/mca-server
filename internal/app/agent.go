@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"log"
 	"math/rand"
@@ -291,19 +292,18 @@ func RunAgent() error {
 	return nil
 }
 
-func collectMemory(ctx context.Context, wg *sync.WaitGroup, pollInterval int, services *service.MetricService, logger *zap.SugaredLogger) {
+func collectMetricsCPU(ctx context.Context, wg *sync.WaitGroup, pollInterval int, services *service.MetricService, logger *zap.SugaredLogger) {
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("--> collect memory goroutine exit")
+			logger.Info("--> collect CPU metrics goroutine exit")
 			wg.Done()
 			return
 
 		case <-time.After(time.Duration(pollInterval) * time.Second):
-
+			logger.Info("collecting CPU metrics")
 			memoryStat, _ := mem.VirtualMemory()
-			logger.Info("collecting memory metrics")
 
 			_, err := services.AddGaugeItem("TotalMemory", model.Gauge(memoryStat.Total))
 			if err != nil {
@@ -313,6 +313,11 @@ func collectMemory(ctx context.Context, wg *sync.WaitGroup, pollInterval int, se
 			_, err = services.AddGaugeItem("FreeMemory", model.Gauge(memoryStat.Free))
 			if err != nil {
 				logger.Errorf("metric saving error: FreeMemory = %v", memoryStat.Free)
+			}
+
+			_, err = services.AddGaugeItem("CPUutilization1", model.Gauge(cpu.ClocksPerSec))
+			if err != nil {
+				logger.Errorf("metric saving error: CPUutilization1 = %v", cpu.ClocksPerSec)
 			}
 		}
 	}
@@ -370,9 +375,8 @@ func pushMetricsToQueue(ctx context.Context, wg *sync.WaitGroup, queue chan<- mo
 				logger.Errorf("falied report: %v", err)
 				continue
 			}
-			logger.Debug("Отправка метрик из памяти в очередь")
+			logger.Debug("push metrics to queue")
 			for _, metric := range metrics {
-				//logger.Debug(metric)
 				queue <- metric
 			}
 		}
@@ -388,11 +392,7 @@ func sendMetricsFromQueue(ctx context.Context, wg *sync.WaitGroup, worker int, q
 			return
 
 		case metric := <-queue:
-			//logger.Infof(
-			//	"Воркер %d взял метрику %s, очередь %d",
-			//	worker, metric.ID, len(queue))
-
-			err := handlers.SendMetric(services, &metric, cfg.Host, cfg.Key, logger)
+			err := handlers.SendMetricFromQueue(services, &metric, cfg.Host, cfg.Key, logger)
 			if err != nil {
 				logger.Errorf("Falied to make request: %v", err)
 			}
@@ -430,12 +430,12 @@ func RunAgentAsync() error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	metricsStat := new(runtime.MemStats)
-	metricsQueue := make(chan model.Metric, 999)
+	metricsQueue := make(chan model.Metric)
 
 	var wg sync.WaitGroup
 
 	wg.Add(1)
-	go collectMemory(ctx, &wg, cfg.PollInterval, agentServices, agentLogger)
+	go collectMetricsCPU(ctx, &wg, cfg.PollInterval, agentServices, agentLogger)
 
 	wg.Add(1)
 	go collectMetricsNEW(ctx, &wg, metricsStat, cfg.PollInterval, agentServices, agentLogger)

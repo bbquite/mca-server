@@ -176,7 +176,7 @@ func SendMetricsPackJSON(services *service.MetricService, host string, shakey st
 	return nil
 }
 
-func SendMetric(services *service.MetricService, metric *model.Metric, host string, shakey string, logger *zap.SugaredLogger) error {
+func SendMetricFromQueue(services *service.MetricService, metric *model.Metric, host string, shakey string, logger *zap.SugaredLogger) error {
 
 	url := fmt.Sprintf("http://%s/update/", host)
 	client := http.Client{}
