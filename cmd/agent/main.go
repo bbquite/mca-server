@@ -7,7 +7,10 @@ import (
 )
 
 func main() {
-	if err := app.RunAgent(); err != nil {
+
+	err := app.RunAgentAsync()
+	if err != nil {
 		log.Fatal(err)
 	}
+
 }

@@ -30,7 +30,7 @@ func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 }
 
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
-	r.ResponseWriter.WriteHeader(statusCode)
+	//r.ResponseWriter.WriteHeader(statusCode)
 	r.responseData.status = statusCode
 }
 
@@ -58,7 +58,7 @@ func RequestsLoggingMiddleware(logger *zap.SugaredLogger) func(http.Handler) htt
 				"uri", r.RequestURI,
 				"size", responseData.size,
 				"duration", duration,
-				"\nheaders", r.Header,
+				//"headers", r.Header,
 			)
 		})
 	}
