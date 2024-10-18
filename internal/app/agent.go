@@ -361,33 +361,49 @@ func collectMetricsNEW(ctx context.Context, wg *sync.WaitGroup, metricStat *runt
 	}
 }
 
-func pushMetricsToQueue(ctx context.Context, wg *sync.WaitGroup, queue chan<- model.Metric, cfg *agentConfig, services *service.MetricService, logger *zap.SugaredLogger) {
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Info("--> push metrics goroutine exit")
-			wg.Done()
-			return
+func pushMetricsToQueue(ctx context.Context, wg *sync.WaitGroup, cfg *agentConfig, services *service.MetricService, logger *zap.SugaredLogger) chan model.Metric {
 
-		case <-time.After(time.Duration(cfg.ReportInterval) * time.Second):
-			metrics, err := services.GetAllMetrics()
-			if err != nil {
-				logger.Errorf("falied report: %v", err)
-				continue
-			}
-			logger.Debug("push metrics to queue")
-			for _, metric := range metrics {
-				queue <- metric
+	metricsQueue := make(chan model.Metric)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Info("--> push metrics goroutine exit")
+				close(metricsQueue)
+				wg.Done()
+				return
+
+			case <-time.After(time.Duration(cfg.ReportInterval) * time.Second):
+				metrics, err := services.GetAllMetrics()
+				if err != nil {
+					logger.Errorf("falied report: %v", err)
+					continue
+				}
+				logger.Debug("push metrics to queue")
+				for _, metric := range metrics {
+					metricsQueue <- metric
+				}
 			}
 		}
-	}
+	}()
+
+	return metricsQueue
 }
 
 func sendMetricsFromQueue(ctx context.Context, wg *sync.WaitGroup, worker int, queue <-chan model.Metric, cfg *agentConfig, services *service.MetricService, logger *zap.SugaredLogger) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("--> send metrics goroutine %d exit", worker)
+			logger.Infof("--> send metrics goroutine %d exit (%d)", worker, len(queue))
+			if len(queue) > 0 {
+				for metric := range queue {
+					err := handlers.SendMetricFromQueue(services, &metric, cfg.Host, cfg.Key, logger)
+					if err != nil {
+						logger.Errorf("Falied to make request: %v", err)
+					}
+				}
+			}
 			wg.Done()
 			return
 
@@ -430,7 +446,6 @@ func RunAgentAsync() error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	metricsStat := new(runtime.MemStats)
-	metricsQueue := make(chan model.Metric)
 
 	var wg sync.WaitGroup
 
@@ -441,7 +456,7 @@ func RunAgentAsync() error {
 	go collectMetricsNEW(ctx, &wg, metricsStat, cfg.PollInterval, agentServices, agentLogger)
 
 	wg.Add(1)
-	go pushMetricsToQueue(ctx, &wg, metricsQueue, cfg, agentServices, agentLogger)
+	metricsQueue := pushMetricsToQueue(ctx, &wg, cfg, agentServices, agentLogger)
 
 	for worker := 1; worker <= cfg.RateLimit; worker++ {
 		wg.Add(1)
@@ -454,7 +469,6 @@ func RunAgentAsync() error {
 	<-signalCh
 
 	cancel()
-	close(metricsQueue)
 	wg.Wait()
 
 	agentLogger.Info("Agent shutdown gracefully")

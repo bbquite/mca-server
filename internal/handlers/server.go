@@ -45,7 +45,6 @@ func NewHandler(services *service.MetricService, shaKey string, logger *zap.Suga
 func (h *Handler) InitChiRoutes() *chi.Mux {
 	chiRouter := chi.NewRouter()
 
-	//chiRouter.Use(middleware.RequestsLoggingMiddleware(h.logger))
 	chiRouter.Use(chiMiddleware.Logger)
 	chiRouter.Use(middleware.GzipMiddleware)
 	if h.shaKey != "" {

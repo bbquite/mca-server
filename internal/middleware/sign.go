@@ -20,12 +20,6 @@ func CheckSignMiddleware(shaKey string) func(http.Handler) http.Handler {
 				r.Body.Close()
 				r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-				//log.Printf(`
-				//	MW sign ckeck
-				//	key: %s
-				//	sign: %s
-				//`, shaKey, r.Header.Get("Hashsha256"))
-
 				shaHeaderSign, err := hex.DecodeString(r.Header.Get("Hashsha256"))
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
