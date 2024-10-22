@@ -1,0 +1,39 @@
+package middleware
+
+import (
+	"bytes"
+	"encoding/hex"
+	"io"
+	"log"
+	"net/http"
+
+	"github.com/bbquite/mca-server/internal/utils"
+)
+
+func CheckSignMiddleware(shaKey string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+			if r.Method == "Post" && r.Header.Get("Hashsha256") != "" {
+
+				bodyBytes, _ := io.ReadAll(r.Body)
+				r.Body.Close()
+				r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+				shaHeaderSign, err := hex.DecodeString(r.Header.Get("Hashsha256"))
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					log.Print(err)
+					return
+				}
+				if utils.CheckHMACEqual(shaKey, shaHeaderSign, bodyBytes) {
+					next.ServeHTTP(w, r)
+				} else {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
