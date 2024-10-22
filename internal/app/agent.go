@@ -395,6 +395,7 @@ func sendMetricsFromQueue(ctx context.Context, wg *sync.WaitGroup, worker int, q
 	for {
 		select {
 		case <-ctx.Done():
+			defer wg.Done()
 			logger.Infof("--> send metrics goroutine %d exit (%d)", worker, len(queue))
 			if len(queue) > 0 {
 				for metric := range queue {
@@ -404,7 +405,6 @@ func sendMetricsFromQueue(ctx context.Context, wg *sync.WaitGroup, worker int, q
 					}
 				}
 			}
-			wg.Done()
 			return
 
 		case metric := <-queue:
